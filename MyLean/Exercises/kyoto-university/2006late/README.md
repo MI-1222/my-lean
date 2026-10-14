@@ -100,4 +100,7 @@
 - `Proof/`: 大問別の証明ディレクトリ。
   - `Problem1.lean`: 第1問の完全な形式証明(`problem_1_proof`)。
   - `Problem2.lean`: 第2問の完全な形式証明(`problem_2_proof`)。
+  - `Problem3.lean`: 第3問の完全な形式証明(`problem_3_proof`)。
+  - `Problem4.lean`: 第4問の完全な形式証明(`problem_4_proof`)。
+  - `Problem5.lean`: 第5問の完全な形式証明(`problem_5_proof`)。
   - `Problem6.lean`: 第6問の完全な形式証明(`problem_6_proof`)。
