@@ -1,20 +1,14 @@
 import Mathlib
 import MyLean.Common
-import MyLean.Exercises.«kyoto-university».«2006late».exercise.Statement
+import MyLean.Exercises.«kyoto-university».«2006late».Statement
 
 /-!
-# 演習・課題の解答 (Proof)
+# 京都大学 2006年度後期 理系 第6問 (Proof)
 
-大学名: 京都大学
-入試年度: 2006年度後期
-問題: 理系第6問(文系第5問)
-
-このモジュールでは、`Statement.lean` で出題された第6問の完全な形式証明を記述する。
-加法定理と背理法を用いて、tan 1° が有理数であると仮定すると tan 60° = √3 が有理数となり、
-√3 の無理数性に矛盾することを導く。
+$\tan 1^\circ$ は有理数か(背理法による証明)。
 -/
 
-namespace MyLean.Exercises.«kyoto-university».«2006late».exercise
+namespace MyLean.Exercises.«kyoto-university».«2006late»
 
 open Real
 
@@ -88,8 +82,6 @@ lemma isRat_tan_add {x y : ℝ} (hx1 : 0 < x) (hx2 : x < π / 2)
   rw [tan_add_of_Ioo hx1 hx2 hy1 hy2]
   exact isRat_div (isRat_add hx hy) (isRat_sub isRat_one (isRat_mul hx hy))
 
-/-! ### 本問の証明 -/
-
 /-- 【第6問の解答】tan 1° は無理数(有理数ではない)である。 -/
 theorem problem_6_proof : ¬ IsRat (tan oneDeg) := by
   intro h1
@@ -161,4 +153,4 @@ theorem problem_6_proof : ¬ IsRat (tan oneDeg) := by
   use q
   exact hq.symm
 
-end MyLean.Exercises.«kyoto-university».«2006late».exercise
+end MyLean.Exercises.«kyoto-university».«2006late»
