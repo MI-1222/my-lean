@@ -12,7 +12,7 @@ import MyLean.Common
 各問題の完全な証明や解法は対応する解答ファイルにて形式化される。
 -/
 
-namespace MyLean.Exercises.«kyoto-university».«2006late».exercise
+namespace MyLean.Exercises.«kyoto-university».«2006late»
 
 open Real
 open Polynomial
@@ -125,4 +125,4 @@ $\tan 1^{\circ}$ は有理数か(有理数ではない)。 -/
 theorem problem_6 : ¬ IsRat (tan oneDeg) := by
   sorry
 
-end MyLean.Exercises.«kyoto-university».«2006late».exercise
+end MyLean.Exercises.«kyoto-university».«2006late»

@@ -96,5 +96,7 @@
 ## 形式化の構成
 
 - `Statement.lean`: 全6問の定義および主定理のステートメント。
-- `Proof.lean`: 第6問の完全な形式化証明(`problem_6_proof`)。
-- 今後、他の問題(第1問〜第5問)の完全証明も段階的に追加する。
+- `Proof.lean`: 各大問の証明モジュールを集約して再公開するハブモジュール。
+- `Proof/`: 大問別の証明ディレクトリ。
+  - `Problem1.lean`: 第1問の完全な形式証明(`problem_1_proof`)。
+  - `Problem6.lean`: 第6問の完全な形式証明(`problem_6_proof`)。
