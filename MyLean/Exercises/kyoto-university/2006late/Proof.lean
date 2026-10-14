@@ -2,6 +2,7 @@ import Mathlib
 import MyLean.Common
 import MyLean.Exercises.«kyoto-university».«2006late».Statement
 import MyLean.Exercises.«kyoto-university».«2006late».Proof.Problem1
+import MyLean.Exercises.«kyoto-university».«2006late».Proof.Problem2
 import MyLean.Exercises.«kyoto-university».«2006late».Proof.Problem6
 
 /-!
@@ -15,6 +16,7 @@ import MyLean.Exercises.«kyoto-university».«2006late».Proof.Problem6
 
 ## 各問の証明モジュール
 - 【第1問】: `MyLean.Exercises.«kyoto-university».«2006late».Proof.Problem1`
+- 【第2問】: `MyLean.Exercises.«kyoto-university».«2006late».Proof.Problem2`
 - 【第6問】: `MyLean.Exercises.«kyoto-university».«2006late».Proof.Problem6`
 -/
 

@@ -99,4 +99,5 @@
 - `Proof.lean`: 各大問の証明モジュールを集約して再公開するハブモジュール。
 - `Proof/`: 大問別の証明ディレクトリ。
   - `Problem1.lean`: 第1問の完全な形式証明(`problem_1_proof`)。
+  - `Problem2.lean`: 第2問の完全な形式証明(`problem_2_proof`)。
   - `Problem6.lean`: 第6問の完全な形式証明(`problem_6_proof`)。
