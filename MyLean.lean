@@ -10,3 +10,4 @@ import MyLean.LinearAlgebra
 import MyLean.Probability
 import MyLean.SetTheory
 import MyLean.CategoryTheory
+import MyLean.Exercises
