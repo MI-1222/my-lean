@@ -1,1 +1,12 @@
 import MyLean.Basic
+import MyLean.Common
+import MyLean.Algebra
+import MyLean.Analysis
+import MyLean.Geometry
+import MyLean.NumberTheory
+import MyLean.Combinatorics
+import MyLean.Topology
+import MyLean.LinearAlgebra
+import MyLean.Probability
+import MyLean.SetTheory
+import MyLean.CategoryTheory
