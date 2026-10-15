@@ -1,5 +1,3 @@
-import Mathlib
-
 /-!
 # 共通基盤モジュール (MyLean.Common.Basic)
 

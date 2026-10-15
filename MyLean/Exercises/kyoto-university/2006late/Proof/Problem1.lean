@@ -1,5 +1,9 @@
-import Mathlib
-import MyLean.Common
+import Mathlib.Algebra.Polynomial.Basic
+import Mathlib.Algebra.Polynomial.Degree.Defs
+import Mathlib.Algebra.Polynomial.Eval.Defs
+import Mathlib.Basic.Real.Basic
+import Mathlib.Tactic.Linarith
+import Mathlib.Tactic.Ring
 import MyLean.Exercises.«kyoto-university».«2006late».Statement
 
 /-!

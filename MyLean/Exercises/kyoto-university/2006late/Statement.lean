@@ -1,5 +1,9 @@
-import Mathlib
-import MyLean.Common
+import Mathlib.Algebra.Polynomial.Degree.Defs
+import Mathlib.Analysis.Real.Sqrt
+import Mathlib.Analysis.SpecialFunctions.Trigonometric.Basic
+import Mathlib.Data.Nat.Choose.Basic
+import Mathlib.MeasureTheory.Integral.IntervalIntegral.Basic
+import Mathlib.Topology.MetricSpace.Pseudo.Defs
 
 /-!
 # 演習・課題ステートメント (Statement)

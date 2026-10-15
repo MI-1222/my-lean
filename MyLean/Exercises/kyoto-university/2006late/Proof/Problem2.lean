@@ -1,5 +1,8 @@
-import Mathlib
-import MyLean.Common
+import Mathlib.Analysis.SpecificLimits.Normed
+import Mathlib.Topology.Separation.Hausdorff
+import Mathlib.Tactic.Linarith
+import Mathlib.Tactic.NormNum
+import Mathlib.Tactic.Ring
 import MyLean.Exercises.«kyoto-university».«2006late».Statement
 
 /-!
