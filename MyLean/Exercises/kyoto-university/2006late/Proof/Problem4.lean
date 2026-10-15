@@ -1,5 +1,6 @@
-import Mathlib
-import MyLean.Common
+import Mathlib.Algebra.Order.Ring.Unbundled.Basic
+import Mathlib.Tactic.Linarith
+import Mathlib.Tactic.NormNum
 import MyLean.Exercises.«kyoto-university».«2006late».Statement
 
 /-!

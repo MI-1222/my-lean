@@ -1,5 +1,8 @@
-import Mathlib
-import MyLean.Common
+import Mathlib.Analysis.SpecialFunctions.Integrals.Basic
+import Mathlib.Analysis.SpecialFunctions.Pow.Real
+import Mathlib.MeasureTheory.Integral.IntervalIntegral.Basic
+import Mathlib.Tactic.NormNum
+import Mathlib.Tactic.Ring
 import MyLean.Exercises.«kyoto-university».«2006late».Statement
 
 /-!

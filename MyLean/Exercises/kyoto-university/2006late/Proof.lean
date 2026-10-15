@@ -1,4 +1,3 @@
-import Mathlib
 import MyLean.Common
 import MyLean.Exercises.«kyoto-university».«2006late».Statement
 import MyLean.Exercises.«kyoto-university».«2006late».Proof.Problem1

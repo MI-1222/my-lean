@@ -1,5 +1,10 @@
-import Mathlib
-import MyLean.Common
+import Mathlib.Analysis.SpecialFunctions.Trigonometric.Arctan
+import Mathlib.Analysis.SpecialFunctions.Trigonometric.Basic
+import Mathlib.NumberTheory.Real.Irrational
+import Mathlib.Tactic.Linarith
+import Mathlib.Tactic.NormNum
+import Mathlib.Tactic.NormNum.Prime
+import Mathlib.Tactic.Ring
 import MyLean.Exercises.«kyoto-university».«2006late».Statement
 
 /-!
