@@ -1,4 +1,4 @@
-import Mathlib
+-- 必要な Mathlib モジュールを個別にインポートする（例: import Mathlib.Data.Real.Basic）
 import MyLean.Common
 
 /-!
