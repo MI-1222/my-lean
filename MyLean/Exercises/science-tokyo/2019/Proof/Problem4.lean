@@ -6,6 +6,8 @@ import Mathlib.Topology.Connected.Basic
 import Mathlib.Topology.Connected.Clopen
 import Mathlib.Topology.Order.IntermediateValue
 import Mathlib.SetTheory.Cardinal.Finite
+import Mathlib.Algebra.Polynomial.Roots
+import Mathlib.LinearAlgebra.Vandermonde
 import MyLean.Common
 import MyLean.Exercises.«science-tokyo».«2019».Statement
 
@@ -664,6 +666,67 @@ theorem spaceRegionsCount_eq_max_of_general_position (n : ℕ) (H : Fin n → Pl
       maxSpaceRegions_succ m
     rw [hstep, hih, hsucc]
 
+/-! ### モーメント曲線による一般の位置の陽的構成と等号達成 -/
+
+/-- 実数パラメータ $t$ に対するモーメント平面:
+方程式 $x + ty + t^2 z = t^3$ により定義される。 -/
+def momentPlane (t : ℝ) : Plane3 :=
+  sorry
+
+/-- パラメータが異なれば、モーメント平面は平行でない。 -/
+lemma not_parallel_momentPlanes {t₁ t₂ : ℝ} (hne : t₁ ≠ t₂) :
+    ¬ parallelPlanes (momentPlane t₁) (momentPlane t₂) := by
+  sorry
+
+/-- 相異なる3つのモーメント平面は、解と係数の関係から定まる唯一の交点を持つ。 -/
+lemma intersection_three_momentPlanes {t₁ t₂ t₃ : ℝ}
+    (h12 : t₁ ≠ t₂) (h23 : t₂ ≠ t₃) (h13 : t₁ ≠ t₃) :
+    ∃ p : Space3,
+      (momentPlane t₁).toSet ∩ (momentPlane t₂).toSet ∩ (momentPlane t₃).toSet = {p} := by
+  sorry
+
+/-- 相異なる4つのモーメント平面の共通部分は空である。
+もし点 $p$ が属せば、3次多項式 $t^3 - z t^2 - y t - x$ が4つの相異なる根を持つことになり矛盾する。 -/
+lemma intersection_four_momentPlanes_empty {t₁ t₂ t₃ t₄ : ℝ}
+    (h12 : t₁ ≠ t₂) (h23 : t₂ ≠ t₃) (h34 : t₃ ≠ t₄)
+    (h13 : t₁ ≠ t₃) (h14 : t₁ ≠ t₄) (h24 : t₂ ≠ t₄) :
+    (momentPlane t₁).toSet ∩ (momentPlane t₂).toSet ∩
+    (momentPlane t₃).toSet ∩ (momentPlane t₄).toSet = ∅ := by
+  sorry
+
+/-- 任意の自然数 $n$ に対し、一般の位置にある平面配置が存在する。 -/
+theorem exists_general_position_planes (n : ℕ) :
+    ∃ (H : Fin n → Plane3), GeneralPositionPlanes n H := by
+  use fun i => momentPlane (i.val : ℝ)
+  refine ⟨?_, ?_, ?_⟩
+  · intro i j hij
+    have h_ne : (i.val : ℝ) ≠ (j.val : ℝ) := by
+      exact_mod_cast (Fin.ext_iff.not.mp hij)
+    exact not_parallel_momentPlanes h_ne
+  · intro i j l hij hjl hil
+    have h_ne1 : (i.val : ℝ) ≠ (j.val : ℝ) := by exact_mod_cast (Fin.ext_iff.not.mp hij)
+    have h_ne2 : (j.val : ℝ) ≠ (l.val : ℝ) := by exact_mod_cast (Fin.ext_iff.not.mp hjl)
+    have h_ne3 : (i.val : ℝ) ≠ (l.val : ℝ) := by exact_mod_cast (Fin.ext_iff.not.mp hil)
+    exact intersection_three_momentPlanes h_ne1 h_ne2 h_ne3
+  · intro i j l m hij hjl hlm hil him hjm
+    have h_ne1 : (i.val : ℝ) ≠ (j.val : ℝ) := by exact_mod_cast (Fin.ext_iff.not.mp hij)
+    have h_ne2 : (j.val : ℝ) ≠ (l.val : ℝ) := by exact_mod_cast (Fin.ext_iff.not.mp hjl)
+    have h_ne3 : (l.val : ℝ) ≠ (m.val : ℝ) := by exact_mod_cast (Fin.ext_iff.not.mp hlm)
+    have h_ne4 : (i.val : ℝ) ≠ (l.val : ℝ) := by exact_mod_cast (Fin.ext_iff.not.mp hil)
+    have h_ne5 : (i.val : ℝ) ≠ (m.val : ℝ) := by exact_mod_cast (Fin.ext_iff.not.mp him)
+    have h_ne6 : (j.val : ℝ) ≠ (m.val : ℝ) := by exact_mod_cast (Fin.ext_iff.not.mp hjm)
+    exact intersection_four_momentPlanes_empty h_ne1 h_ne2 h_ne3 h_ne4 h_ne5 h_ne6
+
+/-- 一般の位置にある平面配置は、相異なる平面からなる。 -/
+lemma distinctPlanes_of_general_position (n : ℕ) (H : Fin n → Plane3)
+    (hgen : GeneralPositionPlanes n H) :
+    DistinctPlanes n H := by
+  intro i j h_eq
+  by_contra hij
+  have h_not_parallel := hgen.1 i j hij
+  apply h_not_parallel
+  sorry
+
 /-! ### 本問の主定理 -/
 
 /-- 【第4問 (1) の解答(代数公式との一致)】
@@ -686,8 +749,11 @@ theorem problem_4_1_geometric_proof (n : ℕ) :
     have hle := spaceRegionsCount_le_maxSpaceRegions n H
     have heq := problem_4_1_proof n
     omega
-  · -- 一般の位置にある n 枚の平面配置の存在性(等号達成)。
-    sorry
+  · obtain ⟨H, hgen⟩ := exists_general_position_planes n
+    refine ⟨H, distinctPlanes_of_general_position n H hgen, ?_⟩
+    have heq1 := spaceRegionsCount_eq_max_of_general_position n H hgen
+    have heq2 := problem_4_1_proof n
+    rw [heq1, heq2]
 
 /-! ### 具体例 (n = 2, 3, 4) における領域数の検証補題 -/
 
