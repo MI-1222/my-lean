@@ -1156,12 +1156,234 @@ lemma card_filter_nonempty_convexPlaneRegion_succ_le (k : ℕ) (L : Fin (k + 1) 
   exact h_le
 
 open Classical in
+/-- 点 $x$ が属する符号ベクトル。各直線 $L_i$ のどちら側に存在するかを決定する。 -/
+noncomputable def pointSignVector (k : ℕ) (L : Fin k → Line2)
+    (x : {x : Plane2 | ∀ i, x ∉ (L i).toSet}) : SignVector2 k :=
+  fun i => decide ((L i).offset < @inner ℝ Plane2 _ (L i).normVec x.val)
+
+lemma mem_convexPlaneRegion_pointSignVector (k : ℕ) (L : Fin k → Line2)
+    (x : {x : Plane2 | ∀ i, x ∉ (L i).toSet}) :
+    x.val ∈ convexPlaneRegion k L (pointSignVector k L x) := by
+  dsimp [convexPlaneRegion]
+  intro i
+  have h_not : x.val ∉ (L i).toSet := x.2 i
+  dsimp [Line2.toSet] at h_not
+  have h_ne : @inner ℝ Plane2 _ (L i).normVec x.val ≠ (L i).offset := h_not
+  cases h_bool : pointSignVector k L x i
+  · have h_dec : decide ((L i).offset < @inner ℝ Plane2 _ (L i).normVec x.val) = false := by
+      change pointSignVector k L x i = false at h_bool
+      dsimp [pointSignVector] at h_bool
+      exact h_bool
+    have h_not_lt := of_decide_eq_false h_dec
+    have h_le : @inner ℝ Plane2 _ (L i).normVec x.val ≤ (L i).offset := not_lt.mp h_not_lt
+    exact lt_of_le_of_ne h_le h_ne
+  · have h_dec : decide ((L i).offset < @inner ℝ Plane2 _ (L i).normVec x.val) = true := by
+      change pointSignVector k L x i = true at h_bool
+      dsimp [pointSignVector] at h_bool
+      exact h_bool
+    exact of_decide_eq_true h_dec
+
+lemma pointSignVector_eq_of_mem (k : ℕ) (L : Fin k → Line2)
+    (x : {x : Plane2 | ∀ i, x ∉ (L i).toSet}) (σ : SignVector2 k)
+    (hx : x.val ∈ convexPlaneRegion k L σ) :
+    pointSignVector k L x = σ := by
+  funext i
+  have h := hx i
+  dsimp [pointSignVector]
+  cases hσ : σ i
+  · rw [hσ] at h
+    dsimp at h
+    have : ¬ (L i).offset < @inner ℝ Plane2 _ (L i).normVec x.val := not_lt.mpr (le_of_lt h)
+    simp [this]
+  · rw [hσ] at h
+    dsimp at h
+    simp [h]
+
+/-- 同一の連結成分に属する点は、属する符号ベクトルが一致する。
+超平面による分離と開かつ閉集合の連結成分包含性により証明される。 -/
+lemma pointSignVector_eq_of_connectedComponent_eq (k : ℕ) (L : Fin k → Line2)
+    (x y : {x : Plane2 | ∀ i, x ∉ (L i).toSet})
+    (h_conn : connectedComponent x = connectedComponent y) :
+    pointSignVector k L x = pointSignVector k L y := by
+  funext i
+  by_contra hne
+  have h_cases : (pointSignVector k L x i = true ∧ pointSignVector k L y i = false) ∨
+                 (pointSignVector k L x i = false ∧ pointSignVector k L y i = true) := by
+    revert hne
+    cases pointSignVector k L x i <;> cases pointSignVector k L y i <;> intro hne
+    · exact False.elim (hne rfl)
+    · right; exact ⟨rfl, rfl⟩
+    · left; exact ⟨rfl, rfl⟩
+    · exact False.elim (hne rfl)
+  have h_cont : Continuous (fun p : {p : Plane2 | ∀ i, p ∉ (L i).toSet} =>
+      @inner ℝ Plane2 _ (L i).normVec p.val) :=
+    continuous_const.inner continuous_subtype_val
+  let U : Set {p : Plane2 | ∀ i, p ∉ (L i).toSet} :=
+    {p | (L i).offset < @inner ℝ Plane2 _ (L i).normVec p.val}
+  have hU_open : IsOpen U := isOpen_Ioi.preimage h_cont
+  have hUc_open : IsOpen (Uᶜ) := by
+    have h_eq : Uᶜ = {p : {p : Plane2 | ∀ i, p ∉ (L i).toSet} |
+        @inner ℝ Plane2 _ (L i).normVec p.val < (L i).offset} := by
+      ext p
+      simp only [mem_compl_iff]
+      change ¬ (L i).offset < @inner ℝ Plane2 _ (L i).normVec p.val ↔
+        @inner ℝ Plane2 _ (L i).normVec p.val < (L i).offset
+      have hp_not : p.val ∉ (L i).toSet := p.2 i
+      dsimp [Line2.toSet] at hp_not
+      constructor
+      · intro hnot
+        exact lt_of_le_of_ne (not_lt.mp hnot) hp_not
+      · intro hlt hnot
+        exact lt_asymm hlt hnot
+    rw [h_eq]
+    exact isOpen_Iio.preimage h_cont
+  have hU_clopen : IsClopen U := ⟨isOpen_compl_iff.mp hUc_open, hU_open⟩
+  rcases h_cases with ⟨hxt, hyf⟩ | ⟨hxf, hyt⟩
+  · have hxU : x ∈ U := by
+      change (L i).offset < @inner ℝ Plane2 _ (L i).normVec x.val
+      have : pointSignVector k L x i = true := hxt
+      dsimp [pointSignVector] at this
+      exact of_decide_eq_true this
+    have hyUc : y ∈ Uᶜ := by
+      intro hy
+      have : pointSignVector k L y i = false := hyf
+      dsimp [pointSignVector] at this
+      have hnot := of_decide_eq_false this
+      exact hnot hy
+    have h_sub := IsClopen.connectedComponent_subset hU_clopen hxU
+    have hy_in_comp : y ∈ connectedComponent x := by
+      rw [h_conn]
+      exact mem_connectedComponent
+    exact hyUc (h_sub hy_in_comp)
+  · have hyU : y ∈ U := by
+      change (L i).offset < @inner ℝ Plane2 _ (L i).normVec y.val
+      have : pointSignVector k L y i = true := hyt
+      dsimp [pointSignVector] at this
+      exact of_decide_eq_true this
+    have hxUc : x ∈ Uᶜ := by
+      intro hx
+      have : pointSignVector k L x i = false := hxf
+      dsimp [pointSignVector] at this
+      have hnot := of_decide_eq_false this
+      exact hnot hx
+    have h_sub := IsClopen.connectedComponent_subset hU_clopen hyU
+    have hx_in_comp : x ∈ connectedComponent y := by
+      rw [← h_conn]
+      exact mem_connectedComponent
+    exact hxUc (h_sub hx_in_comp)
+
+/-- 凸領域内の2点を結ぶ閉線分上の点は、再び同じ凸領域に属する。 -/
+lemma mem_convexPlaneRegion_segment {k : ℕ} (L : Fin k → Line2) (σ : SignVector2 k)
+    {p₁ p₂ : Plane2} (hp₁ : p₁ ∈ convexPlaneRegion k L σ) (hp₂ : p₂ ∈ convexPlaneRegion k L σ)
+    {t : ℝ} (ht : t ∈ Icc (0 : ℝ) 1) :
+    (1 - t) • p₁ + t • p₂ ∈ convexPlaneRegion k L σ := by
+  rcases eq_or_lt_of_le ht.1 with ht0 | ht0
+  · subst ht0
+    simp only [sub_zero, one_smul, zero_smul, add_zero]
+    exact hp₁
+  · rcases eq_or_lt_of_le ht.2 with ht1 | ht1
+    · subst ht1
+      simp only [sub_self, zero_smul, one_smul, zero_add]
+      exact hp₂
+    · have ha : 0 < 1 - t := by linarith
+      have hb : 0 < t := ht0
+      have hab : (1 - t) + t = 1 := by ring
+      exact convex_combination_mem_region L σ hp₁ hp₂ ha hb hab
+
+/-- 凸開領域に属する点は、配置内のどの直線にも属さない。 -/
+lemma not_mem_line_of_mem_convexPlaneRegion {k : ℕ} (L : Fin k → Line2) (σ : SignVector2 k)
+    {p : Plane2} (hp : p ∈ convexPlaneRegion k L σ) (i : Fin k) :
+    p ∉ (L i).toSet := by
+  have h := hp i
+  dsimp [Line2.toSet]
+  split_ifs at h with hσ
+  · linarith
+  · linarith
+
+/-- 属する符号ベクトルが一致する2点は、同一の連結成分に属する。
+凸領域内の線分による弧状連結性と、連結像の連結成分包含性により証明される。 -/
+lemma connectedComponent_eq_of_pointSignVector_eq (k : ℕ) (L : Fin k → Line2)
+    (x y : {x : Plane2 | ∀ i, x ∉ (L i).toSet})
+    (h_eq : pointSignVector k L x = pointSignVector k L y) :
+    connectedComponent x = connectedComponent y := by
+  let σ := pointSignVector k L x
+  have hx_mem : x.val ∈ convexPlaneRegion k L σ :=
+    mem_convexPlaneRegion_pointSignVector k L x
+  have hy_mem : y.val ∈ convexPlaneRegion k L σ := by
+    have h_eq_y : σ = pointSignVector k L y := h_eq
+    rw [h_eq_y]
+    exact mem_convexPlaneRegion_pointSignVector k L y
+  let α := {p : Plane2 | ∀ i, p ∉ (L i).toSet}
+  let γ_raw : ℝ → Plane2 := fun t => (1 - t) • x.val + t • y.val
+  have h_cont_raw : Continuous γ_raw := by
+    continuity
+  have h_segment_mem : ∀ t ∈ Icc (0 : ℝ) 1, ∀ i : Fin k, γ_raw t ∉ (L i).toSet := by
+    intro t ht i
+    have h_mem := mem_convexPlaneRegion_segment L σ hx_mem hy_mem ht
+    exact not_mem_line_of_mem_convexPlaneRegion L σ h_mem i
+  let γ : Icc (0 : ℝ) 1 → α := fun ⟨t, ht⟩ => ⟨γ_raw t, h_segment_mem t ht⟩
+  have h_cont_γ : Continuous γ := by
+    exact Continuous.subtype_mk (h_cont_raw.comp continuous_subtype_val) _
+  have : ConnectedSpace (Icc (0 : ℝ) 1) :=
+    Subtype.connectedSpace (isConnected_Icc (by norm_num : (0 : ℝ) ≤ 1))
+  have h_conn_range : IsConnected (range γ) := isConnected_range h_cont_γ
+  have hx_range : x ∈ range γ := by
+    use ⟨0, ⟨le_refl 0, by norm_num⟩⟩
+    apply Subtype.ext
+    dsimp [γ, γ_raw]
+    simp
+  have hy_range : y ∈ range γ := by
+    use ⟨1, ⟨by norm_num, le_refl 1⟩⟩
+    apply Subtype.ext
+    dsimp [γ, γ_raw]
+    simp
+  have h_sub := IsConnected.subset_connectedComponent h_conn_range hx_range
+  have hy_in_comp : y ∈ connectedComponent x := h_sub hy_range
+  exact connectedComponent_eq hy_in_comp
+
+open Classical in
 /-- 2次元平面における直線配置の領域数は、空でない符号ベクトルの個数と一致する。
 各領域が開かつ凸(連結)であり、互いに素な開集合の非交和をなすことから従う。 -/
 lemma planeRegionsCount_eq_card_nonempty_convexPlaneRegion (k : ℕ) (L : Fin k → Line2) :
     planeRegionsCount k L =
       (Finset.filter (fun σ => (convexPlaneRegion k L σ).Nonempty) Finset.univ).card := by
-  sorry
+  let α := {x : Plane2 | ∀ i, x ∉ (L i).toSet}
+  let s : Setoid α := connectedComponentSetoid α
+  let V := {σ : SignVector2 k // (convexPlaneRegion k L σ).Nonempty}
+  let f : α → V := fun x =>
+    ⟨pointSignVector k L x, ⟨x.val, mem_convexPlaneRegion_pointSignVector k L x⟩⟩
+  have h_fiber : ∀ x y : α, f x = f y → x ≈ y := by
+    intro x y hfg
+    have h_eq : pointSignVector k L x = pointSignVector k L y := congr_arg Subtype.val hfg
+    exact connectedComponent_eq_of_pointSignVector_eq k L x y h_eq
+  have h_le : Nat.card (Quotient s) ≤ Fintype.card V :=
+    card_quotient_le_of_fiber_le s f h_fiber
+  have h_rep : ∀ v : V, ∃ x : α, f x = v := by
+    intro ⟨σ, hσ⟩
+    obtain ⟨p, hp⟩ := hσ
+    have hp_not : ∀ i, p ∉ (L i).toSet := not_mem_line_of_mem_convexPlaneRegion L σ hp
+    have h_sign := pointSignVector_eq_of_mem k L ⟨p, hp_not⟩ σ hp
+    refine ⟨⟨p, hp_not⟩, Subtype.ext h_sign⟩
+  choose w hw using h_rep
+  let g : V → Quotient s := fun v => Quotient.mk s (w v)
+  have hg_inj : Function.Injective g := by
+    intro v1 v2 hg
+    have hequiv : w v1 ≈ w v2 := Quotient.exact hg
+    have hconn : connectedComponent (w v1) = connectedComponent (w v2) := hequiv
+    have hsign := pointSignVector_eq_of_connectedComponent_eq k L (w v1) (w v2) hconn
+    have h_f_eq : f (w v1) = f (w v2) := Subtype.ext hsign
+    rw [hw v1, hw v2] at h_f_eq
+    exact h_f_eq
+  have : Finite (Quotient s) := finite_quotient_of_fiber_le s f h_fiber
+  have h_ge := Nat.card_le_card_of_injective g hg_inj
+  have h_card_V : Fintype.card V =
+      (Finset.filter (fun σ => (convexPlaneRegion k L σ).Nonempty) Finset.univ).card := by
+    rw [Fintype.card_subtype]
+  rw [Nat.card_eq_fintype_card] at h_ge
+  dsimp [planeRegionsCount]
+  change Nat.card (Quotient s) =
+    (Finset.filter (fun σ => (convexPlaneRegion k L σ).Nonempty) Finset.univ).card
+  omega
 
 /-- 平面領域の増加量は、切断された既存領域の個数に一致する(高々等しい)。
 ファイバー分解 Bool → {0, 1, 2} の和により、増加量は切断領域数で上から抑えられる。 -/
