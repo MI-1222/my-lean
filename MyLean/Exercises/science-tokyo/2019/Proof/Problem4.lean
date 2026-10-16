@@ -9,7 +9,8 @@ import Mathlib.SetTheory.Cardinal.Finite
 import Mathlib.Algebra.Polynomial.Roots
 import Mathlib.LinearAlgebra.Vandermonde
 import Mathlib.Tactic.ComputeDegree
-import Mathlib.Basic.Real.Basic
+import Mathlib.Data.Fintype.Pi
+import Mathlib.Algebra.Order.BigOperators.Group.Finset
 import MyLean.Common
 import MyLean.Exercises.«science-tokyo».«2019».Statement
 
@@ -23,7 +24,7 @@ $$ T_{\max}(n) = \sum_{k=0}^3 \binom{n}{k} = \frac{n^3 + 5n + 6}{6} $$
 
 namespace MyLean.Exercises.«science-tokyo».«2019»
 
-open Set Polynomial
+open Set Polynomial BigOperators
 
 /-! ### 平面分割・空間分割の漸化式補題 -/
 
@@ -600,12 +601,150 @@ lemma fiber_card_le_two (k : ℕ) (L : Fin (k + 1) → Line2) (σ : SignVector2 
       ≤ (Finset.univ : Finset Bool).card := Finset.card_filter_le _ _
     _ = 2 := Fintype.card_bool
 
+open Classical in
+/-- 空領域から派生する有効な $(k+1)$ 符号ベクトルの個数は 0 である。 -/
+lemma fiber_card_eq_zero_of_empty (k : ℕ) (L : Fin (k + 1) → Line2) (σ : SignVector2 k)
+    (h_empty : ¬ (convexPlaneRegion k (L ∘ Fin.castSucc) σ).Nonempty) :
+    (Finset.filter (fun b : Bool =>
+      (convexPlaneRegion (k + 1) L (Fin.snoc σ b)).Nonempty) Finset.univ).card = 0 := by
+  rw [Finset.card_eq_zero, Finset.filter_eq_empty_iff]
+  intro b _ ⟨p, hp⟩
+  apply h_empty
+  rw [mem_convexPlaneRegion_succ] at hp
+  exact ⟨p, hp.1⟩
+
+open Classical in
+/-- 直積空間 $Fin (k + 1) \to Bool$ 上の述語を満たす元の個数は、
+ファイバーごとの個数の和に等しい。 -/
+lemma card_filter_succ_eq_sum {k : ℕ} (P : (Fin (k + 1) → Bool) → Prop) [DecidablePred P] :
+    (Finset.filter P Finset.univ).card =
+      ∑ σ ∈ (Finset.univ : Finset (Fin k → Bool)),
+        (Finset.filter (fun b : Bool => P (Fin.snoc σ b)) Finset.univ).card := by
+  let s := Finset.filter P (Finset.univ : Finset (Fin (k + 1) → Bool))
+  have h_fiber := Finset.card_eq_sum_card_fiberwise (f := fun τ => τ ∘ Fin.castSucc)
+    (s := s) (t := (Finset.univ : Finset (Fin k → Bool))) (fun x _ => Finset.mem_univ _)
+  rw [h_fiber]
+  apply Finset.sum_congr rfl
+  intro σ _
+  have h_img : Finset.filter (fun b => P (Fin.snoc σ b)) Finset.univ =
+      (s.filter (fun τ => τ ∘ Fin.castSucc = σ)).image (fun τ => τ (Fin.last k)) := by
+    ext b
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_image]
+    constructor
+    · intro hP
+      refine ⟨Fin.snoc σ b, ?_, ?_⟩
+      · simp only [Finset.mem_filter, Finset.mem_univ, true_and, s]
+        refine ⟨hP, ?_⟩
+        ext i; simp
+      · simp
+    · rintro ⟨τ, h_filter, rfl⟩
+      simp only [Finset.mem_filter, Finset.mem_univ, true_and, s] at h_filter
+      rcases h_filter with ⟨hP, hcast⟩
+      have hτ_eq : τ = Fin.snoc σ (τ (Fin.last k)) := by
+        ext i
+        refine Fin.lastCases ?_ ?_ i
+        · simp
+        · intro j
+          simp [← hcast]
+      rw [← hτ_eq]
+      exact hP
+  rw [h_img]
+  rw [Finset.card_image_of_injOn]
+  intro τ1 h1 τ2 h2 h_last
+  have hcast1 := (Finset.mem_filter.mp h1).2
+  have hcast2 := (Finset.mem_filter.mp h2).2
+  ext i
+  refine Fin.lastCases ?_ ?_ i
+  · exact h_last
+  · intro j
+    have hj1 := congr_fun hcast1 j
+    have hj2 := congr_fun hcast2 j
+    dsimp at hj1 hj2
+    rw [hj1, hj2]
+
+/-- 各ファイバーの濃度に関する項別評価補題。
+空領域では0、未切断では1以下、切断領域では2以下となるため、
+非空指示量と切断指示量の和で上から抑えられる。 -/
+lemma term_le_add_split (F_card : ℕ) (h_le_two : F_card ≤ 2)
+    (is_nonempty : Prop) [Decidable is_nonempty]
+    (is_split : Prop) [Decidable is_split]
+    (h_not_split : ¬ is_split → F_card ≤ 1)
+    (h_empty : ¬ is_nonempty → F_card = 0) :
+    F_card ≤ (if is_nonempty then 1 else 0) + (if is_split then 1 else 0) := by
+  by_cases hne : is_nonempty
+  · simp only [hne, ↓reduceIte]
+    by_cases hsp : is_split
+    · simp only [hsp, ↓reduceIte]
+      omega
+    · simp only [hsp, ↓reduceIte, add_zero]
+      exact h_not_split hsp
+  · simp only [hne, ↓reduceIte, zero_add]
+    have h0 := h_empty hne
+    rw [h0]
+    split_ifs <;> omega
+
+/-- 各点の不等式を有限和全体の不等式に持ち上げる補題。 -/
+lemma sum_fiber_le_sum_add {k : ℕ} (A B : (Fin k → Bool) → ℕ) (F : (Fin k → Bool) → ℕ)
+    (h_le : ∀ σ, F σ ≤ A σ + B σ) :
+    ∑ σ, F σ ≤ (∑ σ, A σ) + ∑ σ, B σ := by
+  rw [← Finset.sum_add_distrib]
+  exact Finset.sum_le_sum (fun σ _ => h_le σ)
+
+open Classical in
+/-- 述語の指示関数の和は、フィルターされた部分集合の要素数に一致する。 -/
+lemma sum_ite_eq_card_filter {α : Type*} [Fintype α] (P : α → Prop) [DecidablePred P] :
+    (∑ x : α, (if P x then 1 else 0)) = (Finset.filter P (Finset.univ : Finset α)).card := by
+  rw [Finset.card_eq_sum_ones, ← Finset.sum_filter]
+
+open Classical in
+/-- 凸領域の非空個数に関するファイバー分解上界不等式。
+$(k+1)$ 本の直線配置による空でない凸領域の個数は、
+既存の領域数と切断された領域数の和で抑えられる。 -/
+lemma card_filter_nonempty_convexPlaneRegion_succ_le (k : ℕ) (L : Fin (k + 1) → Line2) :
+    (Finset.filter (fun τ => (convexPlaneRegion (k + 1) L τ).Nonempty) Finset.univ).card ≤
+      (Finset.filter
+        (fun σ => (convexPlaneRegion k (L ∘ Fin.castSucc) σ).Nonempty) Finset.univ).card +
+        splitRegionsCount k L := by
+  let P_succ := fun τ => (convexPlaneRegion (k + 1) L τ).Nonempty
+  rw [card_filter_succ_eq_sum P_succ]
+  have h_le := sum_fiber_le_sum_add
+    (A := fun σ => if (convexPlaneRegion k (L ∘ Fin.castSucc) σ).Nonempty then 1 else 0)
+    (B := fun σ =>
+      if isSplitByLine (convexPlaneRegion k (L ∘ Fin.castSucc) σ) (L (Fin.last k)) then 1 else 0)
+    (F := fun σ => (Finset.filter (fun b : Bool => P_succ (Fin.snoc σ b)) Finset.univ).card)
+    (fun σ => by
+      apply term_le_add_split
+      · exact fiber_card_le_two k L σ
+      · exact fiber_card_le_one_of_not_split k L σ
+      · exact fiber_card_eq_zero_of_empty k L σ)
+  have hA : (∑ σ, if (convexPlaneRegion k (L ∘ Fin.castSucc) σ).Nonempty then 1 else 0) =
+      (Finset.filter
+        (fun σ => (convexPlaneRegion k (L ∘ Fin.castSucc) σ).Nonempty) Finset.univ).card :=
+    sum_ite_eq_card_filter _
+  have hB : (∑ σ, if isSplitByLine (convexPlaneRegion k (L ∘ Fin.castSucc) σ)
+      (L (Fin.last k)) then 1 else 0) = splitRegionsCount k L := by
+    dsimp [splitRegionsCount]
+    exact sum_ite_eq_card_filter _
+  rw [hA, hB] at h_le
+  exact h_le
+
+open Classical in
+/-- 2次元平面における直線配置の領域数は、空でない符号ベクトルの個数と一致する。
+各領域が開かつ凸(連結)であり、互いに素な開集合の非交和をなすことから従う。 -/
+lemma planeRegionsCount_eq_card_nonempty_convexPlaneRegion (k : ℕ) (L : Fin k → Line2) :
+    planeRegionsCount k L =
+      (Finset.filter (fun σ => (convexPlaneRegion k L σ).Nonempty) Finset.univ).card := by
+  sorry
+
 /-- 平面領域の増加量は、切断された既存領域の個数に一致する(高々等しい)。
-切断されない領域はそのまま残り、切断された各領域はちょうど2つに分かれるため増加量は各1個である。 -/
+ファイバー分解 Bool → {0, 1, 2} の和により、増加量は切断領域数で上から抑えられる。 -/
 lemma planeRegionsCount_succ_le_add_split (k : ℕ) (L : Fin (k + 1) → Line2) :
     planeRegionsCount (k + 1) L ≤
       planeRegionsCount k (L ∘ Fin.castSucc) + splitRegionsCount k L := by
-  sorry
+  rw [planeRegionsCount_eq_card_nonempty_convexPlaneRegion]
+  rw [planeRegionsCount_eq_card_nonempty_convexPlaneRegion]
+  exact card_filter_nonempty_convexPlaneRegion_succ_le k L
+
 
 /-- 2次元平面における直線追加の幾何学的漸化不等式:
 $(k+1)$ 本目の直線を追加したとき、既存の $k$ 本の直線との交点で高々 $k+1$ 個の線分・半直線に分かれ、
