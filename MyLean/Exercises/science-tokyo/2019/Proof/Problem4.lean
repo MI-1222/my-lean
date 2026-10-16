@@ -15,7 +15,9 @@ namespace MyLean.Exercises.«science-tokyo».«2019»
 
 /-! ### 平面分割・空間分割の漸化式補題 -/
 
-/-- 直線による2次元平面分割の最大数を表す関数 S(k) = binom(k, 0) + binom(k, 1) + binom(k, 2)。 -/
+/-- 直線による2次元平面分割の最大数を表す関数:
+$$ S(k) = \binom{k}{0} + \binom{k}{1} + \binom{k}{2} = 1 + k + \frac{k(k-1)}{2} $$
+「怠けた仕出し屋の数列」として知られ、任意の $k$ 本の直線配置による補集合の連結成分数の最大値を与える。 -/
 def maxPlaneRegions (k : ℕ) : ℕ :=
   Nat.choose k 0 + Nat.choose k 1 + Nat.choose k 2
 
@@ -54,6 +56,24 @@ lemma two_mul_choose_two (m : ℕ) :
           have : m + 1 + 1 - 1 = m + 1 := by omega
           rw [this]
           ring
+
+/-- 怠けた仕出し屋の数列の閉じた多項式表示:
+$2 \cdot S(k) = k^2 + k + 2$。
+したがって $S(k) = 1 + k + \frac{k(k-1)}{2}$ が成り立つ。 -/
+lemma two_mul_maxPlaneRegions (k : ℕ) :
+    2 * maxPlaneRegions k = k ^ 2 + k + 2 := by
+  dsimp [maxPlaneRegions]
+  have h := two_mul_choose_two k
+  rw [Nat.choose_zero_right, Nat.choose_one_right]
+  rcases k with _ | k
+  · rfl
+  · have hk : k + 1 - 1 = k := by omega
+    rw [hk] at h
+    calc
+      2 * (1 + (k + 1) + (k + 1).choose 2) =
+        2 + 2 * (k + 1) + 2 * (k + 1).choose 2 := by ring
+      _ = 2 + 2 * (k + 1) + (k + 1) * k := by rw [h]
+      _ = (k + 1) ^ 2 + (k + 1) + 2 := by ring
 
 /-- 組合せ数 $\binom{m+2}{3}$ の 6 倍に関する恒等式。 -/
 lemma six_mul_choose_three (m : ℕ) :
@@ -110,6 +130,16 @@ lemma six_mul_maxSpaceRegions (n : ℕ) :
 
 /-! ### 幾何学的交差理論と領域数の漸化不等式 -/
 
+/-- 2本の直線が平行である条件。法線ベクトルがスカラー倍であることとして定義される。 -/
+def parallelLines (L₁ L₂ : Line2) : Prop :=
+  ∃ (c : ℝ), L₁.normVec = c • L₂.normVec
+
+/-- 2次元直線配置が一般の位置(General Position)にある条件。
+すべての直線が互いに平行でなく、かつどの相異なる3直線も1点で交わらない。 -/
+def GeneralPositionLines (k : ℕ) (L : Fin k → Line2) : Prop :=
+  (∀ i j, i ≠ j → ¬ parallelLines (L i) (L j)) ∧
+  (∀ i j l, i ≠ j → j ≠ l → i ≠ l → (L i).toSet ∩ (L j).toSet ∩ (L l).toSet = ∅)
+
 /-- 2枚の平面が平行である条件。法線ベクトルがスカラー倍であることとして定義される。 -/
 def parallelPlanes (H₁ H₂ : Plane3) : Prop :=
   ∃ (c : ℝ), H₁.normVec = c • H₂.normVec
@@ -117,6 +147,15 @@ def parallelPlanes (H₁ H₂ : Plane3) : Prop :=
 /-- 2枚の平面が交わる(平行でない)条件。 -/
 def intersectPlanes (H₁ H₂ : Plane3) : Prop :=
   ¬ parallelPlanes H₁ H₂
+
+/-- 3次元平面配置が一般の位置(General Position)にある条件。
+どの2平面も平行でなく、どの3平面も共通直線をもたず1点で交わり、どの4平面も1点を共有しない。 -/
+def GeneralPositionPlanes (n : ℕ) (H : Fin n → Plane3) : Prop :=
+  (∀ i j, i ≠ j → ¬ parallelPlanes (H i) (H j)) ∧
+  (∀ i j l, i ≠ j → j ≠ l → i ≠ l →
+    ∃ p : Space3, (H i).toSet ∩ (H j).toSet ∩ (H l).toSet = {p}) ∧
+  (∀ i j l m, i ≠ j → j ≠ l → l ≠ m → i ≠ l → i ≠ m → j ≠ m →
+    (H i).toSet ∩ (H j).toSet ∩ (H l).toSet ∩ (H m).toSet = ∅)
 
 /-- 2次元平面分割の最大数に関する漸化式:
 $S(k + 1) = S(k) + (k + 1)$。
@@ -132,10 +171,46 @@ lemma maxPlaneRegions_succ_step (k : ℕ) :
   have hk1 : k.choose 1 = k := Nat.choose_one_right k
   omega
 
+/-- 2次元平面における直線追加の幾何学的漸化不等式:
+$(k+1)$ 本目の直線を追加したとき、既存の $k$ 本の直線との交点で高々 $k+1$ 個の線分・半直線に分かれ、
+平面領域数の増加量は高々 $k+1$ である。 -/
+lemma planeRegionsCount_succ_le (k : ℕ) (L : Fin (k + 1) → Line2) :
+    planeRegionsCount (k + 1) L ≤ planeRegionsCount k (L ∘ Fin.castSucc) + (k + 1) := by
+  sorry
+
 /-- 2次元直線配置に対する幾何学的上界補題:
-任意の $k$ 本の直線配置による平面領域数 $S(L)$ は、最大数 $S(k)$ 以下である。 -/
-lemma planeRegionsCount_le_maxPlaneRegions (k : ℕ) (L : Fin k → Line2) :
+任意の $k$ 本の直線配置による補集合の連結成分数が
+$S(k) = \binom{k}{0} + \binom{k}{1} + \binom{k}{2}$ 以下であること。
+
+【導出過程】
+$k-1$ 本の直線がある平面に、$k$ 本目の直線を追加する場合を考える。
+追加した直線は既存の直線と交差し、最大で $k$ 個の線分や半直線に分かれる。
+新しくできた線分や半直線がそれぞれ既存の領域を2分割するため、
+全体の領域数は高々 $k$ 個増える仕組みである。
+これにより漸化式 $S(k) = S(k-1) + k$ が成り立ち、$S(1) = 2$ から二項係数の和が得られる。
+
+【領域数が最大値以下となる理由】
+直線同士が平行だったり、複数の直線が1点で交わったりすると、
+交点で生まれる線分や領域の増加数が減る。
+したがって、すべての直線が平行でなく、どの3直線も1点で交わらない配置でのみ最大値が達成され、
+任意の直線配置では領域数が常に最大値 $S(k)$ 以下となる。 -/
+theorem planeRegionsCount_le_maxPlaneRegions (k : ℕ) (L : Fin k → Line2) :
     planeRegionsCount k L ≤ maxPlaneRegions k := by
+  induction k with
+  | zero =>
+    -- 直線が0本のとき、補集合は全平面 ℝ² であり連結成分数は1である。
+    sorry
+  | succ m ih =>
+    have hstep := planeRegionsCount_succ_le m L
+    have hih := ih (L ∘ Fin.castSucc)
+    have hsucc := maxPlaneRegions_succ_step m
+    omega
+
+/-- 一般の位置にある直線配置に対する最大値達成定理:
+一般の位置にある直線配置 $L$ では、領域数が最大値 $S(k)$ に一致する。 -/
+theorem planeRegionsCount_eq_max_of_general_position (k : ℕ) (L : Fin k → Line2)
+    (hgen : GeneralPositionLines k L) :
+    planeRegionsCount k L = maxPlaneRegions k := by
   sorry
 
 /-- 3次元平面配置に対する幾何学的漸化不等式:
