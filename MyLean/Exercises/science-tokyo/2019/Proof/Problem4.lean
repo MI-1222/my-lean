@@ -5386,7 +5386,795 @@ lemma intersection_plane_x0_two_momentPlanes {t₁ t₂ : ℝ} (h12 : t₁ ≠ t
         = 0 + t₂ * (-t₁ * t₂) + t₂ ^ 2 * (t₁ + t₂) := by simp
       _ = t₂ ^ 3 := by ring
 
-/-- ハイブリッド配置において、最後の平面上に現れる交線系は一般の位置にある。
+/-- 平面 $y = 0$ と2つのモーメント平面の交わりはちょうど1点である。 -/
+lemma intersection_plane_y0_two_momentPlanes {t₁ t₂ : ℝ} (h12 : t₁ ≠ t₂)
+    (h_sum : t₁ + t₂ ≠ 0) :
+    ∃ q : Space3, plane_y0.toSet ∩ (momentPlane t₁).toSet ∩ (momentPlane t₂).toSet = {q} := by
+  let z₀ := (t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) / (t₁ + t₂)
+  let x₀ := -t₁ ^ 2 * t₂ ^ 2 / (t₁ + t₂)
+  let q : Space3 := (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![x₀, 0, z₀]
+  use q
+  ext p
+  simp only [Set.mem_inter_iff, mem_plane_y0, mem_momentPlane, Set.mem_singleton_iff]
+  constructor
+  · rintro ⟨⟨hy, hm1⟩, hm2⟩
+    have h_mul : ((t₁ - t₂) * (t₁ + t₂)) * ((t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) / (t₁ + t₂)) =
+        (t₁ - t₂) * (t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) := by
+      rw [mul_assoc, mul_div_cancel₀ _ h_sum]
+    have hz : p 2 = z₀ := by
+      have h_diff : ((t₁ - t₂) * (t₁ + t₂)) * (p 2 - z₀) = 0 := by
+        calc ((t₁ - t₂) * (t₁ + t₂)) * (p 2 - z₀) =
+            ((t₁ - t₂) * (t₁ + t₂)) * p 2 -
+            ((t₁ - t₂) * (t₁ + t₂)) * z₀ := by ring
+        _ = ((t₁ - t₂) * (t₁ + t₂)) * p 2 -
+            (t₁ - t₂) * (t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) := by
+          change ((t₁ - t₂) * (t₁ + t₂)) * p 2 -
+            ((t₁ - t₂) * (t₁ + t₂)) * ((t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) / (t₁ + t₂)) = _
+          rw [h_mul]
+        _ = (p 0 + t₁ * p 1 + t₁ ^ 2 * p 2 - t₁ ^ 3) -
+            (p 0 + t₂ * p 1 + t₂ ^ 2 * p 2 - t₂ ^ 3) -
+            (t₁ - t₂) * p 1 := by ring
+        _ = (t₁ ^ 3 - t₁ ^ 3) - (t₂ ^ 3 - t₂ ^ 3) - (t₁ - t₂) * 0 := by rw [hm1, hm2, hy]
+        _ = 0 := by ring
+      have h12' : t₁ - t₂ ≠ 0 := sub_ne_zero.mpr h12
+      have h_coeff : (t₁ - t₂) * (t₁ + t₂) ≠ 0 := mul_ne_zero h12' h_sum
+      have hz_sub := (mul_eq_zero.mp h_diff).resolve_left h_coeff
+      linarith
+    have h_x : (t₁ + t₂) * (-t₁ ^ 2 * t₂ ^ 2 / (t₁ + t₂)) = -t₁ ^ 2 * t₂ ^ 2 :=
+      mul_div_cancel₀ _ h_sum
+    have h_z : (t₁ + t₂) * ((t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) / (t₁ + t₂)) =
+        t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2 :=
+      mul_div_cancel₀ _ h_sum
+    have hx : p 0 = x₀ := by
+      have hm1' : (t₁ + t₂) * (p 0 - x₀) = 0 := by
+        calc (t₁ + t₂) * (p 0 - x₀) =
+            (t₁ + t₂) * p 0 - (t₁ + t₂) * x₀ := by ring
+        _ = (t₁ + t₂) * p 0 - (-t₁ ^ 2 * t₂ ^ 2) := by
+          change (t₁ + t₂) * p 0 - (t₁ + t₂) * (-t₁ ^ 2 * t₂ ^ 2 / (t₁ + t₂)) = _
+          rw [h_x]
+        _ = (t₁ + t₂) * (p 0 + t₁ * p 1 + t₁ ^ 2 * p 2 - t₁ ^ 3) -
+            (t₁ + t₂) * t₁ * p 1 -
+            t₁ ^ 2 * ((t₁ + t₂) * p 2 - (t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2)) := by ring
+        _ = (t₁ + t₂) * (p 0 + t₁ * p 1 + t₁ ^ 2 * p 2 - t₁ ^ 3) -
+            (t₁ + t₂) * t₁ * p 1 -
+            t₁ ^ 2 * ((t₁ + t₂) * p 2 - (t₁ + t₂) * z₀) := by
+          have : (t₁ + t₂) * z₀ = t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2 := h_z
+          rw [this]
+        _ = (t₁ + t₂) * (t₁ ^ 3 - t₁ ^ 3) - (t₁ + t₂) * t₁ * 0 -
+            t₁ ^ 2 * ((t₁ + t₂) * z₀ - (t₁ + t₂) * z₀) := by rw [hm1, hy, hz]
+        _ = 0 := by ring
+      have hx_sub := (mul_eq_zero.mp hm1').resolve_left h_sum
+      linarith
+    ext i
+    fin_cases i
+    · exact hx
+    · exact hy
+    · exact hz
+  · rintro rfl
+    refine ⟨⟨rfl, ?_⟩, ?_⟩
+    · dsimp [q, x₀, z₀]
+      have h1 : -t₁ ^ 2 * t₂ ^ 2 / (t₁ + t₂) + t₁ * 0 +
+          t₁ ^ 2 * ((t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) / (t₁ + t₂)) =
+          (-t₁ ^ 2 * t₂ ^ 2 + t₁ ^ 2 * (t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2)) / (t₁ + t₂) := by ring
+      rw [h1]
+      have h2 : -t₁ ^ 2 * t₂ ^ 2 + t₁ ^ 2 * (t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) =
+          t₁ ^ 3 * (t₁ + t₂) := by ring
+      rw [h2, mul_div_cancel_right₀ _ h_sum]
+    · dsimp [q, x₀, z₀]
+      have h1 : -t₁ ^ 2 * t₂ ^ 2 / (t₁ + t₂) + t₂ * 0 +
+          t₂ ^ 2 * ((t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) / (t₁ + t₂)) =
+          (-t₁ ^ 2 * t₂ ^ 2 + t₂ ^ 2 * (t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2)) / (t₁ + t₂) := by ring
+      rw [h1]
+      have h2 : -t₁ ^ 2 * t₂ ^ 2 + t₂ ^ 2 * (t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) =
+          t₂ ^ 3 * (t₁ + t₂) := by ring
+      rw [h2, mul_div_cancel_right₀ _ h_sum]
+
+/-- 平面 $x + y = 1$ と2つのモーメント平面の交わりはちょうど1点である。 -/
+lemma intersection_plane_xy1_two_momentPlanes {t₁ t₂ : ℝ} (h12 : t₁ ≠ t₂)
+    (ht1 : t₁ ≠ 1) (hD : t₁ * t₂ - t₁ - t₂ ≠ 0) :
+    ∃ q : Space3, plane_xy1.toSet ∩ (momentPlane t₁).toSet ∩ (momentPlane t₂).toSet = {q} := by
+  let D := t₁ * t₂ - t₁ - t₂
+  let x₀ := (t₁ ^ 2 * t₂ ^ 2 + t₁ * t₂) / D
+  let y₀ := (-t₁ ^ 2 * t₂ ^ 2 - t₁ - t₂) / D
+  let z₀ := (t₁ * t₂ * (t₁ + t₂) - (t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) + 1) / D
+  let q : Space3 := (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![x₀, y₀, z₀]
+  use q
+  ext p
+  simp only [Set.mem_inter_iff, mem_plane_xy1, mem_momentPlane, Set.mem_singleton_iff]
+  constructor
+  · rintro ⟨⟨hxy, hm1⟩, hm2⟩
+    have h_diff_z : (t₁ - t₂) * D * (p 2 - z₀) = 0 := by
+      calc (t₁ - t₂) * D * (p 2 - z₀) =
+          (t₁ - t₂) * D * p 2 - (t₁ - t₂) * (D * z₀) := by ring
+      _ = (t₁ - t₂) * D * p 2 -
+          (t₁ - t₂) * (t₁ * t₂ * (t₁ + t₂) - (t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) + 1) := by
+        rw [mul_div_cancel₀ _ hD]
+      _ = (t₂ - 1) * (p 0 + t₁ * p 1 + t₁ ^ 2 * p 2 - t₁ ^ 3) -
+          (t₁ - 1) * (p 0 + t₂ * p 1 + t₂ ^ 2 * p 2 - t₂ ^ 3) +
+          (t₁ - t₂) * (p 0 + p 1 - 1) := by ring
+      _ = (t₂ - 1) * (t₁ ^ 3 - t₁ ^ 3) - (t₁ - 1) * (t₂ ^ 3 - t₂ ^ 3) +
+          (t₁ - t₂) * (1 - 1) := by rw [hm1, hm2, hxy]
+      _ = 0 := by ring
+    have h12' : t₁ - t₂ ≠ 0 := sub_ne_zero.mpr h12
+    have h_coeff : (t₁ - t₂) * D ≠ 0 := mul_ne_zero h12' hD
+    have hz : p 2 = z₀ := by
+      have hz_sub := (mul_eq_zero.mp h_diff_z).resolve_left h_coeff
+      linarith
+    have h_diff_y : D * (t₁ - 1) * (p 1 - y₀) = 0 := by
+      have h_cancel : D * y₀ = -t₁ ^ 2 * t₂ ^ 2 - t₁ - t₂ := mul_div_cancel₀ _ hD
+      have h_cancel_z : D * z₀ = t₁ * t₂ * (t₁ + t₂) - (t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) + 1 :=
+        mul_div_cancel₀ _ hD
+      calc D * (t₁ - 1) * (p 1 - y₀) =
+          D * ((t₁ - 1) * p 1) - (t₁ - 1) * (D * y₀) := by ring
+      _ = D * ((p 0 + t₁ * p 1 + t₁ ^ 2 * p 2 - t₁ ^ 3) - (p 0 + p 1 - 1) +
+          (t₁ ^ 3 - 1) - t₁ ^ 2 * p 2) - (t₁ - 1) * (D * y₀) := by ring
+      _ = D * ((t₁ ^ 3 - t₁ ^ 3) - (1 - 1) + (t₁ ^ 3 - 1) - t₁ ^ 2 * z₀) -
+          (t₁ - 1) * (-t₁ ^ 2 * t₂ ^ 2 - t₁ - t₂) := by rw [hm1, hxy, hz, h_cancel]
+      _ = (t₁ ^ 3 - 1) * D - t₁ ^ 2 * (D * z₀) -
+          (t₁ - 1) * (-t₁ ^ 2 * t₂ ^ 2 - t₁ - t₂) := by ring
+      _ = (t₁ ^ 3 - 1) * D -
+          t₁ ^ 2 * (t₁ * t₂ * (t₁ + t₂) - (t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) + 1) -
+          (t₁ - 1) * (-t₁ ^ 2 * t₂ ^ 2 - t₁ - t₂) := by rw [h_cancel_z]
+      _ = 0 := by
+        dsimp [D]
+        ring
+    have ht1_ne : t₁ - 1 ≠ 0 := sub_ne_zero.mpr ht1
+    have h_coeff_y : D * (t₁ - 1) ≠ 0 := mul_ne_zero hD ht1_ne
+    have hy : p 1 = y₀ := by
+      have hy_sub := (mul_eq_zero.mp h_diff_y).resolve_left h_coeff_y
+      linarith
+    have hx : p 0 = x₀ := by
+      have h_sum : x₀ + y₀ = 1 := by
+        dsimp [x₀, y₀, D]
+        have h : (t₁ ^ 2 * t₂ ^ 2 + t₁ * t₂) / (t₁ * t₂ - t₁ - t₂) +
+            (-t₁ ^ 2 * t₂ ^ 2 - t₁ - t₂) / (t₁ * t₂ - t₁ - t₂) =
+            (t₁ ^ 2 * t₂ ^ 2 + t₁ * t₂ + (-t₁ ^ 2 * t₂ ^ 2 - t₁ - t₂)) /
+              (t₁ * t₂ - t₁ - t₂) := by ring
+        rw [h]
+        have h_num : t₁ ^ 2 * t₂ ^ 2 + t₁ * t₂ + (-t₁ ^ 2 * t₂ ^ 2 - t₁ - t₂) =
+            t₁ * t₂ - t₁ - t₂ := by ring
+        rw [h_num, div_self hD]
+      linarith
+    ext i
+    fin_cases i
+    · exact hx
+    · exact hy
+    · exact hz
+  · rintro rfl
+    refine ⟨⟨?_, ?_⟩, ?_⟩
+    · dsimp [q, x₀, y₀, D]
+      have h : (t₁ ^ 2 * t₂ ^ 2 + t₁ * t₂) / (t₁ * t₂ - t₁ - t₂) +
+          (-t₁ ^ 2 * t₂ ^ 2 - t₁ - t₂) / (t₁ * t₂ - t₁ - t₂) =
+          (t₁ ^ 2 * t₂ ^ 2 + t₁ * t₂ + (-t₁ ^ 2 * t₂ ^ 2 - t₁ - t₂)) /
+            (t₁ * t₂ - t₁ - t₂) := by ring
+      rw [h]
+      have h_num : t₁ ^ 2 * t₂ ^ 2 + t₁ * t₂ + (-t₁ ^ 2 * t₂ ^ 2 - t₁ - t₂) =
+          t₁ * t₂ - t₁ - t₂ := by ring
+      rw [h_num, div_self hD]
+    · dsimp [q, x₀, y₀, z₀, D]
+      have h : (t₁ ^ 2 * t₂ ^ 2 + t₁ * t₂) / D +
+          t₁ * ((-t₁ ^ 2 * t₂ ^ 2 - t₁ - t₂) / D) +
+          t₁ ^ 2 * ((t₁ * t₂ * (t₁ + t₂) - (t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) + 1) / D) =
+          ((t₁ ^ 2 * t₂ ^ 2 + t₁ * t₂) +
+          t₁ * (-t₁ ^ 2 * t₂ ^ 2 - t₁ - t₂) +
+          t₁ ^ 2 * (t₁ * t₂ * (t₁ + t₂) - (t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) + 1)) / D := by ring
+      rw [h]
+      have h_num : (t₁ ^ 2 * t₂ ^ 2 + t₁ * t₂) +
+          t₁ * (-t₁ ^ 2 * t₂ ^ 2 - t₁ - t₂) +
+          t₁ ^ 2 * (t₁ * t₂ * (t₁ + t₂) - (t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) + 1) =
+          t₁ ^ 3 * D := by
+        dsimp [D]
+        ring
+      rw [h_num, mul_div_cancel_right₀ _ hD]
+    · dsimp [q, x₀, y₀, z₀, D]
+      have h : (t₁ ^ 2 * t₂ ^ 2 + t₁ * t₂) / D +
+          t₂ * ((-t₁ ^ 2 * t₂ ^ 2 - t₁ - t₂) / D) +
+          t₂ ^ 2 * ((t₁ * t₂ * (t₁ + t₂) - (t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) + 1) / D) =
+          ((t₁ ^ 2 * t₂ ^ 2 + t₁ * t₂) +
+          t₂ * (-t₁ ^ 2 * t₂ ^ 2 - t₁ - t₂) +
+          t₂ ^ 2 * (t₁ * t₂ * (t₁ + t₂) - (t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) + 1)) / D := by ring
+      rw [h]
+      have h_num : (t₁ ^ 2 * t₂ ^ 2 + t₁ * t₂) +
+          t₂ * (-t₁ ^ 2 * t₂ ^ 2 - t₁ - t₂) +
+          t₂ ^ 2 * (t₁ * t₂ * (t₁ + t₂) - (t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2) + 1) =
+          t₂ ^ 3 * D := by
+        dsimp [D]
+        ring
+      rw [h_num, mul_div_cancel_right₀ _ hD]
+
+/-- ハイブリッド配置の0番目の平面は plane_x0 である。 -/
+lemma H_hybrid_of_val_zero {n : ℕ} (i : Fin n) (hi : i.val = 0) :
+    H_hybrid n i = plane_x0 := by
+  unfold H_hybrid
+  simp [hi]
+
+/-- ハイブリッド配置の1番目の平面は plane_y0 である。 -/
+lemma H_hybrid_of_val_one {n : ℕ} (i : Fin n) (hi : i.val = 1) :
+    H_hybrid n i = plane_y0 := by
+  unfold H_hybrid
+  simp [hi]
+
+/-- ハイブリッド配置の2番目の平面は plane_xy1 である。 -/
+lemma H_hybrid_of_val_two {n : ℕ} (i : Fin n) (hi : i.val = 2) :
+    H_hybrid n i = plane_xy1 := by
+  unfold H_hybrid
+  simp [hi]
+
+/-- ハイブリッド配置の3番目以降の平面はモーメント平面である。 -/
+lemma H_hybrid_of_val_ge {n : ℕ} (i : Fin n) (hi : 3 ≤ i.val) :
+    H_hybrid n i = momentPlane (i.val : ℝ) := by
+  unfold H_hybrid
+  have h0 : ¬ i.val = 0 := by omega
+  have h1 : ¬ i.val = 1 := by omega
+  have h2 : ¬ i.val = 2 := by omega
+  simp [h0, h1, h2]
+
+/-- ハイブリッド配置において、$i ≠ j$ なる任意の2平面と最後のモーメント平面の交わりはちょうど1点である。 -/
+lemma intersection_three_hybrid (n : ℕ) (hn : 3 ≤ n) (i j : Fin n) (hij : i ≠ j) :
+    ∃ q, (H_hybrid (n + 1) (Fin.castSucc i)).toSet ∩
+      (H_hybrid (n + 1) (Fin.castSucc j)).toSet ∩
+      (H_hybrid (n + 1) (Fin.last n)).toSet = {q} := by
+  have h_last : H_hybrid (n + 1) (Fin.last n) = momentPlane (n : ℝ) := by
+    have h_ge : 3 ≤ (Fin.last n).val := by
+      change 3 ≤ n
+      exact hn
+    exact H_hybrid_of_val_ge (Fin.last n) h_ge
+  have h_symm : ∀ a b : Fin n, a ≠ b → a < b →
+      ∃ q, (H_hybrid (n + 1) (Fin.castSucc a)).toSet ∩
+        (H_hybrid (n + 1) (Fin.castSucc b)).toSet ∩
+        (H_hybrid (n + 1) (Fin.last n)).toSet = {q} := by
+    intro a b _hab_ne hab_lt
+    have hn_pos : (n : ℝ) ≠ 0 := by
+      have : n ≠ 0 := by omega
+      exact Nat.cast_ne_zero.mpr this
+    have ha_val : (Fin.castSucc a).val = a.val := rfl
+    have hb_val : (Fin.castSucc b).val = b.val := rfl
+    by_cases ha0 : a.val = 0
+    · have ha_eq : H_hybrid (n + 1) (Fin.castSucc a) = plane_x0 :=
+        H_hybrid_of_val_zero (Fin.castSucc a) (by rw [ha_val, ha0])
+      by_cases hb1 : b.val = 1
+      · have hb_eq : H_hybrid (n + 1) (Fin.castSucc b) = plane_y0 :=
+          H_hybrid_of_val_one (Fin.castSucc b) (by rw [hb_val, hb1])
+        rw [ha_eq, hb_eq, h_last]
+        exact intersection_plane_x0_plane_y0_momentPlane hn_pos
+      · by_cases hb2 : b.val = 2
+        · have hb_eq : H_hybrid (n + 1) (Fin.castSucc b) = plane_xy1 :=
+            H_hybrid_of_val_two (Fin.castSucc b) (by rw [hb_val, hb2])
+          rw [ha_eq, hb_eq, h_last]
+          exact intersection_plane_x0_plane_xy1_momentPlane hn_pos
+        · have hb_ge : 3 ≤ (Fin.castSucc b).val := by
+            rw [hb_val]; omega
+          have hb_eq : H_hybrid (n + 1) (Fin.castSucc b) = momentPlane (b.val : ℝ) :=
+            H_hybrid_of_val_ge (Fin.castSucc b) hb_ge
+          rw [ha_eq, hb_eq, h_last]
+          have hb_ne_n : (b.val : ℝ) ≠ (n : ℝ) := by
+            have : b.val ≠ n := by omega
+            exact_mod_cast this
+          have hb_ne_0 : (b.val : ℝ) ≠ 0 := by
+            have : b.val ≠ 0 := by omega
+            exact_mod_cast this
+          exact intersection_plane_x0_two_momentPlanes hb_ne_n hb_ne_0 hn_pos
+    · by_cases ha1 : a.val = 1
+      · have ha_eq : H_hybrid (n + 1) (Fin.castSucc a) = plane_y0 :=
+          H_hybrid_of_val_one (Fin.castSucc a) (by rw [ha_val, ha1])
+        by_cases hb2 : b.val = 2
+        · have hb_eq : H_hybrid (n + 1) (Fin.castSucc b) = plane_xy1 :=
+            H_hybrid_of_val_two (Fin.castSucc b) (by rw [hb_val, hb2])
+          rw [ha_eq, hb_eq, h_last]
+          exact intersection_plane_y0_plane_xy1_momentPlane hn_pos
+        · have hb_ge : 3 ≤ (Fin.castSucc b).val := by
+            rw [hb_val]; omega
+          have hb_eq : H_hybrid (n + 1) (Fin.castSucc b) = momentPlane (b.val : ℝ) :=
+            H_hybrid_of_val_ge (Fin.castSucc b) hb_ge
+          rw [ha_eq, hb_eq, h_last]
+          have hb_ne_n : (b.val : ℝ) ≠ (n : ℝ) := by
+            have : b.val ≠ n := by omega
+            exact_mod_cast this
+          have h_sum : (b.val : ℝ) + (n : ℝ) ≠ 0 := by
+            have : 0 < (b.val : ℝ) + (n : ℝ) := by positivity
+            linarith
+          exact intersection_plane_y0_two_momentPlanes hb_ne_n h_sum
+      · by_cases ha2 : a.val = 2
+        · have ha_eq : H_hybrid (n + 1) (Fin.castSucc a) = plane_xy1 :=
+            H_hybrid_of_val_two (Fin.castSucc a) (by rw [ha_val, ha2])
+          have hb_ge : 3 ≤ (Fin.castSucc b).val := by
+            rw [hb_val]; omega
+          have hb_eq : H_hybrid (n + 1) (Fin.castSucc b) = momentPlane (b.val : ℝ) :=
+            H_hybrid_of_val_ge (Fin.castSucc b) hb_ge
+          rw [ha_eq, hb_eq, h_last]
+          have hb_ne_n : (b.val : ℝ) ≠ (n : ℝ) := by
+            have : b.val ≠ n := by omega
+            exact_mod_cast this
+          have hb_ne_1 : (b.val : ℝ) ≠ 1 := by
+            have : b.val ≠ 1 := by omega
+            exact_mod_cast this
+          have hD : (b.val : ℝ) * (n : ℝ) - (b.val : ℝ) - (n : ℝ) ≠ 0 := by
+            have _hb_real : 3 ≤ (b.val : ℝ) := by
+              have : 3 ≤ b.val := by omega
+              exact_mod_cast this
+            have _hn_real : 4 ≤ (n : ℝ) := by
+              have : 4 ≤ n := by omega
+              exact_mod_cast this
+            nlinarith
+          exact intersection_plane_xy1_two_momentPlanes hb_ne_n hb_ne_1 hD
+        · have ha_ge : 3 ≤ (Fin.castSucc a).val := by
+            rw [ha_val]; omega
+          have hb_ge : 3 ≤ (Fin.castSucc b).val := by
+            rw [hb_val]; omega
+          have ha_eq : H_hybrid (n + 1) (Fin.castSucc a) = momentPlane (a.val : ℝ) :=
+            H_hybrid_of_val_ge (Fin.castSucc a) ha_ge
+          have hb_eq : H_hybrid (n + 1) (Fin.castSucc b) = momentPlane (b.val : ℝ) :=
+            H_hybrid_of_val_ge (Fin.castSucc b) hb_ge
+          rw [ha_eq, hb_eq, h_last]
+          have hab_ne : (a.val : ℝ) ≠ (b.val : ℝ) := by
+            have : a.val ≠ b.val := by omega
+            exact_mod_cast this
+          have han_ne : (a.val : ℝ) ≠ (n : ℝ) := by
+            have : a.val ≠ n := by omega
+            exact_mod_cast this
+          have hbn_ne : (b.val : ℝ) ≠ (n : ℝ) := by
+            have : b.val ≠ n := by omega
+            exact_mod_cast this
+          exact intersection_three_momentPlanes hab_ne hbn_ne han_ne
+  rcases lt_trichotomy i j with h | rfl | h
+  · exact h_symm i j hij h
+  · exact (hij rfl).elim
+  · have h_inter := h_symm j i hij.symm h
+    rcases h_inter with ⟨q, hq⟩
+    use q
+    have h_comm : (H_hybrid (n + 1) (Fin.castSucc i)).toSet ∩
+        (H_hybrid (n + 1) (Fin.castSucc j)).toSet =
+        (H_hybrid (n + 1) (Fin.castSucc j)).toSet ∩
+        (H_hybrid (n + 1) (Fin.castSucc i)).toSet := Set.inter_comm _ _
+    rw [h_comm]
+    exact hq
+
+/-- 3以上の相異なる3数に対するモーメント平面の交点座標の評価 -/
+lemma moment_intersection_xy_ne_one (a b c : ℕ)
+    (ha : 3 ≤ a) (hab : a < b) (hbc : b < c) :
+    (a : ℝ) * (b : ℝ) * (c : ℝ) -
+      ((a : ℝ) * (b : ℝ) + (b : ℝ) * (c : ℝ) + (c : ℝ) * (a : ℝ)) ≠ 1 := by
+  have ha' : 3 ≤ (a : ℝ) := by exact_mod_cast ha
+  have hb' : 4 ≤ (b : ℝ) := by exact_mod_cast (by omega : 4 ≤ b)
+  have hc' : 5 ≤ (c : ℝ) := by exact_mod_cast (by omega : 5 ≤ c)
+  have hab' : (a : ℝ) ≤ (c : ℝ) := by exact_mod_cast (by omega : a ≤ c)
+  have hbc' : (b : ℝ) ≤ (c : ℝ) := by exact_mod_cast (by omega : b ≤ c)
+  have h_id : (a : ℝ) * (b : ℝ) * (c : ℝ) -
+        ((a : ℝ) * (b : ℝ) + (b : ℝ) * (c : ℝ) + (c : ℝ) * (a : ℝ)) - 1 =
+      ((a : ℝ) - 1) * ((b : ℝ) - 1) * ((c : ℝ) - 1) -
+        ((a : ℝ) + (b : ℝ) + (c : ℝ)) := by ring
+  rw [← sub_ne_zero, h_id]
+  have h1 : 2 ≤ (a : ℝ) - 1 := by linarith
+  have h2 : 3 ≤ (b : ℝ) - 1 := by linarith
+  have h3 : 4 ≤ (c : ℝ) - 1 := by linarith
+  have h_prod : 6 ≤ ((a : ℝ) - 1) * ((b : ℝ) - 1) := by nlinarith
+  have h_prod2 : 6 * ((c : ℝ) - 1) ≤
+      ((a : ℝ) - 1) * ((b : ℝ) - 1) * ((c : ℝ) - 1) := by nlinarith
+  have h_lin : (a : ℝ) + (b : ℝ) + (c : ℝ) ≤ 3 * (c : ℝ) := by linarith
+  have : 0 < ((a : ℝ) - 1) * ((b : ℝ) - 1) * ((c : ℝ) - 1) -
+      ((a : ℝ) + (b : ℝ) + (c : ℝ)) := by
+    calc 0 < 3 * (c : ℝ) - 6 := by linarith
+    _ = 6 * ((c : ℝ) - 1) - 3 * (c : ℝ) := by ring
+    _ ≤ ((a : ℝ) - 1) * ((b : ℝ) - 1) * ((c : ℝ) - 1) -
+        ((a : ℝ) + (b : ℝ) + (c : ℝ)) := by linarith
+  linarith
+
+lemma intersection_three_momentPlanes_eq {t₁ t₂ t₃ : ℝ}
+    (h12 : t₁ ≠ t₂) (h23 : t₂ ≠ t₃) (h13 : t₁ ≠ t₃) :
+    (momentPlane t₁).toSet ∩ (momentPlane t₂).toSet ∩ (momentPlane t₃).toSet =
+      {explicitIntersection t₁ t₂ t₃} := by
+  have h_mem : explicitIntersection t₁ t₂ t₃ ∈
+      (momentPlane t₁).toSet ∩ (momentPlane t₂).toSet ∩ (momentPlane t₃).toSet := by
+    simp only [Set.mem_inter_iff, mem_momentPlane]
+    refine ⟨⟨?_, ?_⟩, ?_⟩
+    · dsimp [explicitIntersection]; ring
+    · dsimp [explicitIntersection]; ring
+    · dsimp [explicitIntersection]; ring
+  rcases intersection_three_momentPlanes h12 h23 h13 with ⟨p, hp⟩
+  rw [hp] at h_mem ⊢
+  have hp_eq : p = explicitIntersection t₁ t₂ t₃ :=
+    (Set.mem_singleton_iff.mp h_mem).symm
+  rw [hp_eq]
+
+lemma intersection_plane_x0_plane_y0_two_momentPlanes_empty {a n : ℝ}
+    (han : a ≠ n) (ha : a ≠ 0) (hn : n ≠ 0) :
+    plane_x0.toSet ∩ plane_y0.toSet ∩
+      (momentPlane a).toSet ∩ (momentPlane n).toSet = ∅ := by
+  apply Set.eq_empty_of_subset_empty
+  rintro p ⟨⟨⟨hx, hy⟩, hma⟩, hmn⟩
+  simp only [mem_plane_x0] at hx
+  simp only [mem_plane_y0] at hy
+  simp only [mem_momentPlane] at hma hmn
+  have h_diff : (a - n) * a ^ 2 * n ^ 2 = 0 := by
+    calc (a - n) * a ^ 2 * n ^ 2 =
+        a ^ 2 * (p 0 + n * p 1 + n ^ 2 * p 2 - n ^ 3) -
+        n ^ 2 * (p 0 + a * p 1 + a ^ 2 * p 2 - a ^ 3) -
+        (a ^ 2 - n ^ 2) * p 0 - a * n * (a - n) * p 1 := by ring
+    _ = a ^ 2 * (n ^ 3 - n ^ 3) - n ^ 2 * (a ^ 3 - a ^ 3) -
+        (a ^ 2 - n ^ 2) * 0 - a * n * (a - n) * 0 := by
+      rw [hma, hmn, hx, hy]
+    _ = 0 := by ring
+  have han' : a - n ≠ 0 := sub_ne_zero.mpr han
+  have ha2 : a ^ 2 ≠ 0 := pow_ne_zero 2 ha
+  have hn2 : n ^ 2 ≠ 0 := pow_ne_zero 2 hn
+  have h_prod : (a - n) * a ^ 2 * n ^ 2 ≠ 0 :=
+    mul_ne_zero (mul_ne_zero han' ha2) hn2
+  exact h_prod h_diff
+
+lemma intersection_plane_x0_plane_xy1_two_momentPlanes_empty {a n : ℝ}
+    (han : a ≠ n) (ha : a ≠ 0) (hn : n ≠ 0) (han_one : a * n + 1 ≠ 0) :
+    plane_x0.toSet ∩ plane_xy1.toSet ∩
+      (momentPlane a).toSet ∩ (momentPlane n).toSet = ∅ := by
+  apply Set.eq_empty_of_subset_empty
+  rintro p ⟨⟨⟨hx, hxy⟩, hma⟩, hmn⟩
+  simp only [mem_plane_x0] at hx
+  simp only [mem_plane_xy1] at hxy
+  simp only [mem_momentPlane] at hma hmn
+  have h_diff : (a - n) * a * n * (a * n + 1) = 0 := by
+    calc (a - n) * a * n * (a * n + 1) =
+        a ^ 2 * (p 0 + n * p 1 + n ^ 2 * p 2 - n ^ 3) -
+        n ^ 2 * (p 0 + a * p 1 + a ^ 2 * p 2 - a ^ 3) -
+        a * n * (a - n) * (p 0 + p 1 - 1) -
+        (a ^ 2 - n ^ 2 - a * n * (a - n)) * p 0 := by ring
+    _ = a ^ 2 * (n ^ 3 - n ^ 3) - n ^ 2 * (a ^ 3 - a ^ 3) -
+        a * n * (a - n) * (1 - 1) -
+        (a ^ 2 - n ^ 2 - a * n * (a - n)) * 0 := by rw [hma, hmn, hxy, hx]
+    _ = 0 := by ring
+  have han' : a - n ≠ 0 := sub_ne_zero.mpr han
+  have han_prod : (a - n) * a * n * (a * n + 1) ≠ 0 := by
+    have h1 : (a - n) * a ≠ 0 := mul_ne_zero han' ha
+    have h2 : (a - n) * a * n ≠ 0 := mul_ne_zero h1 hn
+    exact mul_ne_zero h2 han_one
+  exact han_prod h_diff
+
+lemma intersection_plane_x0_three_momentPlanes_empty {a b n : ℝ}
+    (hab : a ≠ b) (hbn : b ≠ n) (han : a ≠ n) (ha : a ≠ 0) (hb : b ≠ 0) (hn : n ≠ 0) :
+    plane_x0.toSet ∩ (momentPlane a).toSet ∩
+      (momentPlane b).toSet ∩ (momentPlane n).toSet = ∅ := by
+  apply Set.eq_empty_of_subset_empty
+  rintro p ⟨⟨⟨hx, hma⟩, hmb⟩, hmn⟩
+  simp only [mem_plane_x0] at hx
+  have h_inter := intersection_three_momentPlanes_eq hab hbn han
+  have hp_in : p ∈ (momentPlane a).toSet ∩ (momentPlane b).toSet ∩ (momentPlane n).toSet :=
+    ⟨⟨hma, hmb⟩, hmn⟩
+  rw [h_inter, Set.mem_singleton_iff] at hp_in
+  have hq0 : p 0 = a * b * n := by
+    rw [hp_in]
+    rfl
+  rw [hq0] at hx
+  have habn : a * b * n ≠ 0 := mul_ne_zero (mul_ne_zero ha hb) hn
+  exact habn hx
+
+lemma intersection_plane_y0_three_momentPlanes_empty {a b n : ℝ}
+    (hab : a ≠ b) (hbn : b ≠ n) (han : a ≠ n)
+    (h_pos : a * b + b * n + n * a ≠ 0) :
+    plane_y0.toSet ∩ (momentPlane a).toSet ∩
+      (momentPlane b).toSet ∩ (momentPlane n).toSet = ∅ := by
+  apply Set.eq_empty_of_subset_empty
+  rintro p ⟨⟨⟨hy, hma⟩, hmb⟩, hmn⟩
+  simp only [mem_plane_y0] at hy
+  have h_inter := intersection_three_momentPlanes_eq hab hbn han
+  have hp_in : p ∈ (momentPlane a).toSet ∩ (momentPlane b).toSet ∩ (momentPlane n).toSet :=
+    ⟨⟨hma, hmb⟩, hmn⟩
+  rw [h_inter, Set.mem_singleton_iff] at hp_in
+  have hq1 : p 1 = -(a * b + b * n + n * a) := by
+    rw [hp_in]
+    rfl
+  rw [hq1] at hy
+  have : a * b + b * n + n * a = 0 := by linarith
+  exact h_pos this
+
+lemma intersection_plane_xy1_three_momentPlanes_empty {a b n : ℝ}
+    (hab : a ≠ b) (hbn : b ≠ n) (han : a ≠ n)
+    (h_ne : a * b * n - (a * b + b * n + n * a) ≠ 1) :
+    plane_xy1.toSet ∩ (momentPlane a).toSet ∩
+      (momentPlane b).toSet ∩ (momentPlane n).toSet = ∅ := by
+  apply Set.eq_empty_of_subset_empty
+  rintro p ⟨⟨⟨hxy, hma⟩, hmb⟩, hmn⟩
+  simp only [mem_plane_xy1] at hxy
+  have h_inter := intersection_three_momentPlanes_eq hab hbn han
+  have hp_in : p ∈ (momentPlane a).toSet ∩ (momentPlane b).toSet ∩ (momentPlane n).toSet :=
+    ⟨⟨hma, hmb⟩, hmn⟩
+  rw [h_inter, Set.mem_singleton_iff] at hp_in
+  have hq0 : p 0 = a * b * n := by
+    rw [hp_in]
+    rfl
+  have hq1 : p 1 = -(a * b + b * n + n * a) := by
+    rw [hp_in]
+    rfl
+  have h_sum : p 0 + p 1 = a * b * n - (a * b + b * n + n * a) := by
+    rw [hq0, hq1]
+    ring
+  rw [h_sum] at hxy
+  exact h_ne hxy
+
+lemma intersection_plane_y0_plane_xy1_two_momentPlanes_empty {a n : ℝ}
+    (han : a ≠ n) (h_quad : a ^ 2 * n ^ 2 + a + n ≠ 0) :
+    plane_y0.toSet ∩ plane_xy1.toSet ∩
+      (momentPlane a).toSet ∩ (momentPlane n).toSet = ∅ := by
+  apply Set.eq_empty_of_subset_empty
+  rintro p ⟨⟨⟨hy, hxy⟩, hma⟩, hmn⟩
+  simp only [mem_plane_y0] at hy
+  simp only [mem_plane_xy1] at hxy
+  simp only [mem_momentPlane] at hma hmn
+  have h_diff : (a - n) * (a ^ 2 * n ^ 2 + a + n) = 0 := by
+    calc (a - n) * (a ^ 2 * n ^ 2 + a + n) =
+        a ^ 2 * (p 0 + n * p 1 + n ^ 2 * p 2 - n ^ 3) -
+        n ^ 2 * (p 0 + a * p 1 + a ^ 2 * p 2 - a ^ 3) +
+        (n ^ 2 - a ^ 2) * (p 0 + p 1 - 1) +
+        (a * n * (n - a) - (n ^ 2 - a ^ 2)) * p 1 := by ring
+    _ = a ^ 2 * (n ^ 3 - n ^ 3) - n ^ 2 * (a ^ 3 - a ^ 3) +
+        (n ^ 2 - a ^ 2) * (1 - 1) +
+        (a * n * (n - a) - (n ^ 2 - a ^ 2)) * 0 := by rw [hma, hmn, hxy, hy]
+    _ = 0 := by ring
+  have han' : a - n ≠ 0 := sub_ne_zero.mpr han
+  have h_prod : (a - n) * (a ^ 2 * n ^ 2 + a + n) ≠ 0 :=
+    mul_ne_zero han' h_quad
+  exact h_prod h_diff
+
+lemma intersection_four_hybrid_empty_of_sorted (n : ℕ) (hn : 3 ≤ n) (i j l : Fin n)
+    (hij : i < j) (hjl : j < l) :
+    (H_hybrid (n + 1) (Fin.castSucc i)).toSet ∩
+      (H_hybrid (n + 1) (Fin.castSucc j)).toSet ∩
+      (H_hybrid (n + 1) (Fin.castSucc l)).toSet ∩
+      (H_hybrid (n + 1) (Fin.last n)).toSet = ∅ := by
+  have h_last : H_hybrid (n + 1) (Fin.last n) = momentPlane (n : ℝ) := by
+    have h_ge : 3 ≤ (Fin.last n).val := by
+      change 3 ≤ n
+      exact hn
+    exact H_hybrid_of_val_ge (Fin.last n) h_ge
+  have hi_val : (Fin.castSucc i).val = i.val := rfl
+  have hj_val : (Fin.castSucc j).val = j.val := rfl
+  have hl_val : (Fin.castSucc l).val = l.val := rfl
+  have hn_pos : (n : ℝ) ≠ 0 := by
+    have : n ≠ 0 := by omega
+    exact Nat.cast_ne_zero.mpr this
+  by_cases hi0 : i.val = 0
+  · have hi_eq : H_hybrid (n + 1) (Fin.castSucc i) = plane_x0 :=
+      H_hybrid_of_val_zero (Fin.castSucc i) (by rw [hi_val, hi0])
+    by_cases hj1 : j.val = 1
+    · have hj_eq : H_hybrid (n + 1) (Fin.castSucc j) = plane_y0 :=
+        H_hybrid_of_val_one (Fin.castSucc j) (by rw [hj_val, hj1])
+      by_cases hl2 : l.val = 2
+      · have hl_eq : H_hybrid (n + 1) (Fin.castSucc l) = plane_xy1 :=
+          H_hybrid_of_val_two (Fin.castSucc l) (by rw [hl_val, hl2])
+        rw [hi_eq, hj_eq, hl_eq]
+        apply Set.eq_empty_of_subset_empty
+        rintro p ⟨⟨⟨hx, hy⟩, hxy⟩, _⟩
+        simp only [mem_plane_x0] at hx
+        simp only [mem_plane_y0] at hy
+        simp only [mem_plane_xy1] at hxy
+        linarith
+      · have hl_ge : 3 ≤ (Fin.castSucc l).val := by rw [hl_val]; omega
+        have hl_eq : H_hybrid (n + 1) (Fin.castSucc l) = momentPlane (l.val : ℝ) :=
+          H_hybrid_of_val_ge (Fin.castSucc l) hl_ge
+        rw [hi_eq, hj_eq, hl_eq, h_last]
+        have hln_ne : (l.val : ℝ) ≠ (n : ℝ) := by
+          have : l.val ≠ n := by omega
+          exact_mod_cast this
+        have hl_ne_0 : (l.val : ℝ) ≠ 0 := by
+          have : l.val ≠ 0 := by omega
+          exact_mod_cast this
+        exact intersection_plane_x0_plane_y0_two_momentPlanes_empty hln_ne hl_ne_0 hn_pos
+    · by_cases hj2 : j.val = 2
+      · have hj_eq : H_hybrid (n + 1) (Fin.castSucc j) = plane_xy1 :=
+          H_hybrid_of_val_two (Fin.castSucc j) (by rw [hj_val, hj2])
+        have hl_ge : 3 ≤ (Fin.castSucc l).val := by rw [hl_val]; omega
+        have hl_eq : H_hybrid (n + 1) (Fin.castSucc l) = momentPlane (l.val : ℝ) :=
+          H_hybrid_of_val_ge (Fin.castSucc l) hl_ge
+        rw [hi_eq, hj_eq, hl_eq, h_last]
+        have hln_ne : (l.val : ℝ) ≠ (n : ℝ) := by
+          have : l.val ≠ n := by omega
+          exact_mod_cast this
+        have hl_ne_0 : (l.val : ℝ) ≠ 0 := by
+          have : l.val ≠ 0 := by omega
+          exact_mod_cast this
+        have hln_one : (l.val : ℝ) * (n : ℝ) + 1 ≠ 0 := by
+          have hl_pos : 0 < (l.val : ℝ) := by
+            have : 0 < l.val := by omega
+            exact_mod_cast this
+          have hn_pos' : 0 < (n : ℝ) := by
+            have : 0 < n := by omega
+            exact_mod_cast this
+          positivity
+        exact intersection_plane_x0_plane_xy1_two_momentPlanes_empty
+          hln_ne hl_ne_0 hn_pos hln_one
+      · have hj_ge : 3 ≤ (Fin.castSucc j).val := by rw [hj_val]; omega
+        have hl_ge : 3 ≤ (Fin.castSucc l).val := by rw [hl_val]; omega
+        have hj_eq : H_hybrid (n + 1) (Fin.castSucc j) = momentPlane (j.val : ℝ) :=
+          H_hybrid_of_val_ge (Fin.castSucc j) hj_ge
+        have hl_eq : H_hybrid (n + 1) (Fin.castSucc l) = momentPlane (l.val : ℝ) :=
+          H_hybrid_of_val_ge (Fin.castSucc l) hl_ge
+        rw [hi_eq, hj_eq, hl_eq, h_last]
+        have hjl_ne : (j.val : ℝ) ≠ (l.val : ℝ) := by
+          have : j.val ≠ l.val := by omega
+          exact_mod_cast this
+        have hln_ne : (l.val : ℝ) ≠ (n : ℝ) := by
+          have : l.val ≠ n := by omega
+          exact_mod_cast this
+        have hjn_ne : (j.val : ℝ) ≠ (n : ℝ) := by
+          have : j.val ≠ n := by omega
+          exact_mod_cast this
+        have hj_ne_0 : (j.val : ℝ) ≠ 0 := by
+          have : j.val ≠ 0 := by omega
+          exact_mod_cast this
+        have hl_ne_0 : (l.val : ℝ) ≠ 0 := by
+          have : l.val ≠ 0 := by omega
+          exact_mod_cast this
+        exact intersection_plane_x0_three_momentPlanes_empty
+          hjl_ne hln_ne hjn_ne hj_ne_0 hl_ne_0 hn_pos
+  · by_cases hi1 : i.val = 1
+    · have hi_eq : H_hybrid (n + 1) (Fin.castSucc i) = plane_y0 :=
+        H_hybrid_of_val_one (Fin.castSucc i) (by rw [hi_val, hi1])
+      by_cases hj2 : j.val = 2
+      · have hj_eq : H_hybrid (n + 1) (Fin.castSucc j) = plane_xy1 :=
+          H_hybrid_of_val_two (Fin.castSucc j) (by rw [hj_val, hj2])
+        have hl_ge : 3 ≤ (Fin.castSucc l).val := by rw [hl_val]; omega
+        have hl_eq : H_hybrid (n + 1) (Fin.castSucc l) = momentPlane (l.val : ℝ) :=
+          H_hybrid_of_val_ge (Fin.castSucc l) hl_ge
+        rw [hi_eq, hj_eq, hl_eq, h_last]
+        have hln_ne : (l.val : ℝ) ≠ (n : ℝ) := by
+          have : l.val ≠ n := by omega
+          exact_mod_cast this
+        have h_quad : (l.val : ℝ) ^ 2 * (n : ℝ) ^ 2 + (l.val : ℝ) + (n : ℝ) ≠ 0 := by
+          have hl_pos : 0 < (l.val : ℝ) := by
+            have : 0 < l.val := by omega
+            exact_mod_cast this
+          have hn_pos' : 0 < (n : ℝ) := by
+            have : 0 < n := by omega
+            exact_mod_cast this
+          positivity
+        exact intersection_plane_y0_plane_xy1_two_momentPlanes_empty hln_ne h_quad
+      · have hj_ge : 3 ≤ (Fin.castSucc j).val := by rw [hj_val]; omega
+        have hl_ge : 3 ≤ (Fin.castSucc l).val := by rw [hl_val]; omega
+        have hj_eq : H_hybrid (n + 1) (Fin.castSucc j) = momentPlane (j.val : ℝ) :=
+          H_hybrid_of_val_ge (Fin.castSucc j) hj_ge
+        have hl_eq : H_hybrid (n + 1) (Fin.castSucc l) = momentPlane (l.val : ℝ) :=
+          H_hybrid_of_val_ge (Fin.castSucc l) hl_ge
+        rw [hi_eq, hj_eq, hl_eq, h_last]
+        have hjl_ne : (j.val : ℝ) ≠ (l.val : ℝ) := by
+          have : j.val ≠ l.val := by omega
+          exact_mod_cast this
+        have hln_ne : (l.val : ℝ) ≠ (n : ℝ) := by
+          have : l.val ≠ n := by omega
+          exact_mod_cast this
+        have hjn_ne : (j.val : ℝ) ≠ (n : ℝ) := by
+          have : j.val ≠ n := by omega
+          exact_mod_cast this
+        have h_pos : (j.val : ℝ) * (l.val : ℝ) + (l.val : ℝ) * (n : ℝ) +
+            (n : ℝ) * (j.val : ℝ) ≠ 0 := by
+          have hj_pos : 0 < (j.val : ℝ) := by
+            have : 0 < j.val := by omega
+            exact_mod_cast this
+          have hl_pos : 0 < (l.val : ℝ) := by
+            have : 0 < l.val := by omega
+            exact_mod_cast this
+          have hn_pos' : 0 < (n : ℝ) := by
+            have : 0 < n := by omega
+            exact_mod_cast this
+          positivity
+        exact intersection_plane_y0_three_momentPlanes_empty hjl_ne hln_ne hjn_ne h_pos
+    · by_cases hi2 : i.val = 2
+      · have hi_eq : H_hybrid (n + 1) (Fin.castSucc i) = plane_xy1 :=
+          H_hybrid_of_val_two (Fin.castSucc i) (by rw [hi_val, hi2])
+        have hj_ge : 3 ≤ (Fin.castSucc j).val := by rw [hj_val]; omega
+        have hl_ge : 3 ≤ (Fin.castSucc l).val := by rw [hl_val]; omega
+        have hj_eq : H_hybrid (n + 1) (Fin.castSucc j) = momentPlane (j.val : ℝ) :=
+          H_hybrid_of_val_ge (Fin.castSucc j) hj_ge
+        have hl_eq : H_hybrid (n + 1) (Fin.castSucc l) = momentPlane (l.val : ℝ) :=
+          H_hybrid_of_val_ge (Fin.castSucc l) hl_ge
+        rw [hi_eq, hj_eq, hl_eq, h_last]
+        have hjl_ne : (j.val : ℝ) ≠ (l.val : ℝ) := by
+          have : j.val ≠ l.val := by omega
+          exact_mod_cast this
+        have hln_ne : (l.val : ℝ) ≠ (n : ℝ) := by
+          have : l.val ≠ n := by omega
+          exact_mod_cast this
+        have hjn_ne : (j.val : ℝ) ≠ (n : ℝ) := by
+          have : j.val ≠ n := by omega
+          exact_mod_cast this
+        have hj_ge' : 3 ≤ j.val := by omega
+        have hjl_lt : j.val < l.val := by omega
+        have hln_lt : l.val < n := by omega
+        have h_ne := moment_intersection_xy_ne_one j.val l.val n hj_ge' hjl_lt hln_lt
+        exact intersection_plane_xy1_three_momentPlanes_empty hjl_ne hln_ne hjn_ne h_ne
+      · have hi_ge : 3 ≤ (Fin.castSucc i).val := by rw [hi_val]; omega
+        have hj_ge : 3 ≤ (Fin.castSucc j).val := by rw [hj_val]; omega
+        have hl_ge : 3 ≤ (Fin.castSucc l).val := by rw [hl_val]; omega
+        have hi_eq : H_hybrid (n + 1) (Fin.castSucc i) = momentPlane (i.val : ℝ) :=
+          H_hybrid_of_val_ge (Fin.castSucc i) hi_ge
+        have hj_eq : H_hybrid (n + 1) (Fin.castSucc j) = momentPlane (j.val : ℝ) :=
+          H_hybrid_of_val_ge (Fin.castSucc j) hj_ge
+        have hl_eq : H_hybrid (n + 1) (Fin.castSucc l) = momentPlane (l.val : ℝ) :=
+          H_hybrid_of_val_ge (Fin.castSucc l) hl_ge
+        rw [hi_eq, hj_eq, hl_eq, h_last]
+        have hij_ne : (i.val : ℝ) ≠ (j.val : ℝ) := by
+          have : i.val ≠ j.val := by omega
+          exact_mod_cast this
+        have hjl_ne : (j.val : ℝ) ≠ (l.val : ℝ) := by
+          have : j.val ≠ l.val := by omega
+          exact_mod_cast this
+        have hil_ne : (i.val : ℝ) ≠ (l.val : ℝ) := by
+          have : i.val ≠ l.val := by omega
+          exact_mod_cast this
+        have hin_ne : (i.val : ℝ) ≠ (n : ℝ) := by
+          have : i.val ≠ n := by omega
+          exact_mod_cast this
+        have hjn_ne : (j.val : ℝ) ≠ (n : ℝ) := by
+          have : j.val ≠ n := by omega
+          exact_mod_cast this
+        have hln_ne : (l.val : ℝ) ≠ (n : ℝ) := by
+          have : l.val ≠ n := by omega
+          exact_mod_cast this
+        exact intersection_four_momentPlanes_empty hij_ne hjl_ne hln_ne hil_ne hin_ne hjn_ne
+
+/-- ハイブリッド配置において、相異なる任意の3平面と
+最後のモーメント平面の交わりは空集合である。 -/
+lemma intersection_four_hybrid_empty (n : ℕ) (hn : 3 ≤ n) (i j l : Fin n)
+    (hij : i ≠ j) (hjl : j ≠ l) (hil : i ≠ l) :
+    (H_hybrid (n + 1) (Fin.castSucc i)).toSet ∩
+      (H_hybrid (n + 1) (Fin.castSucc j)).toSet ∩
+      (H_hybrid (n + 1) (Fin.castSucc l)).toSet ∩
+      (H_hybrid (n + 1) (Fin.last n)).toSet = ∅ := by
+  rcases lt_trichotomy i j with hij_lt | rfl | hji_lt
+  · rcases lt_trichotomy j l with hjl_lt | rfl | hlj_lt
+    · exact intersection_four_hybrid_empty_of_sorted n hn i j l hij_lt hjl_lt
+    · exact (hjl rfl).elim
+    · rcases lt_trichotomy i l with hil_lt | rfl | hli_lt
+      · have h := intersection_four_hybrid_empty_of_sorted n hn i l j hil_lt hlj_lt
+        apply Set.eq_empty_of_subset_empty
+        rintro p ⟨⟨⟨hi, hj⟩, hl⟩, hn_last⟩
+        have hp_in : p ∈ (H_hybrid (n + 1) (Fin.castSucc i)).toSet ∩
+            (H_hybrid (n + 1) (Fin.castSucc l)).toSet ∩
+            (H_hybrid (n + 1) (Fin.castSucc j)).toSet ∩
+            (H_hybrid (n + 1) (Fin.last n)).toSet := ⟨⟨⟨hi, hl⟩, hj⟩, hn_last⟩
+        rw [h] at hp_in
+        exact hp_in
+      · exact (hil rfl).elim
+      · have h := intersection_four_hybrid_empty_of_sorted n hn l i j hli_lt hij_lt
+        apply Set.eq_empty_of_subset_empty
+        rintro p ⟨⟨⟨hi, hj⟩, hl⟩, hn_last⟩
+        have hp_in : p ∈ (H_hybrid (n + 1) (Fin.castSucc l)).toSet ∩
+            (H_hybrid (n + 1) (Fin.castSucc i)).toSet ∩
+            (H_hybrid (n + 1) (Fin.castSucc j)).toSet ∩
+            (H_hybrid (n + 1) (Fin.last n)).toSet := ⟨⟨⟨hl, hi⟩, hj⟩, hn_last⟩
+        rw [h] at hp_in
+        exact hp_in
+  · exact (hij rfl).elim
+  · rcases lt_trichotomy i l with hil_lt | rfl | hli_lt
+    · have h := intersection_four_hybrid_empty_of_sorted n hn j i l hji_lt hil_lt
+      apply Set.eq_empty_of_subset_empty
+      rintro p ⟨⟨⟨hi, hj⟩, hl⟩, hn_last⟩
+      have hp_in : p ∈ (H_hybrid (n + 1) (Fin.castSucc j)).toSet ∩
+          (H_hybrid (n + 1) (Fin.castSucc i)).toSet ∩
+          (H_hybrid (n + 1) (Fin.castSucc l)).toSet ∩
+          (H_hybrid (n + 1) (Fin.last n)).toSet := ⟨⟨⟨hj, hi⟩, hl⟩, hn_last⟩
+      rw [h] at hp_in
+      exact hp_in
+    · exact (hil rfl).elim
+    · rcases lt_trichotomy j l with hjl_lt | rfl | hlj_lt
+      · have h := intersection_four_hybrid_empty_of_sorted n hn j l i hjl_lt hli_lt
+        apply Set.eq_empty_of_subset_empty
+        rintro p ⟨⟨⟨hi, hj⟩, hl⟩, hn_last⟩
+        have hp_in : p ∈ (H_hybrid (n + 1) (Fin.castSucc j)).toSet ∩
+            (H_hybrid (n + 1) (Fin.castSucc l)).toSet ∩
+            (H_hybrid (n + 1) (Fin.castSucc i)).toSet ∩
+            (H_hybrid (n + 1) (Fin.last n)).toSet := ⟨⟨⟨hj, hl⟩, hi⟩, hn_last⟩
+        rw [h] at hp_in
+        exact hp_in
+      · exact (hjl rfl).elim
+      · have h := intersection_four_hybrid_empty_of_sorted n hn l j i hlj_lt hji_lt
+        apply Set.eq_empty_of_subset_empty
+        rintro p ⟨⟨⟨hi, hj⟩, hl⟩, hn_last⟩
+        have hp_in : p ∈ (H_hybrid (n + 1) (Fin.castSucc l)).toSet ∩
+            (H_hybrid (n + 1) (Fin.castSucc j)).toSet ∩
+            (H_hybrid (n + 1) (Fin.castSucc i)).toSet ∩
+            (H_hybrid (n + 1) (Fin.last n)).toSet := ⟨⟨⟨hl, hj⟩, hi⟩, hn_last⟩
+        rw [h] at hp_in
+        exact hp_in
+
+/-- ハイブリッド配置において、
+最後の平面上に現れる交線系は一般の位置にある。
 どの2直線も平行でなく、どの3直線も1点で交わらない。 -/
 lemma generalPositionLines_hybrid (n : ℕ) (hn : 3 ≤ n) :
     GeneralPositionLines n (traceLinesOnLastPlane n (H_hybrid (n + 1))) := by
@@ -5396,7 +6184,11 @@ lemma generalPositionLines_hybrid (n : ℕ) (hn : 3 ≤ n) :
     intro i
     have h_lt : Fin.castSucc i < Fin.last n := Fin.castSucc_lt_last i
     exact not_parallel_hybrid (Fin.castSucc i) (Fin.last n) h_lt
-  sorry
+  apply generalPositionLines_of_plane_intersections n (H_hybrid (n + 1)) h_not_parallel_last
+  · intro i j hij
+    exact intersection_three_hybrid n hn i j hij
+  · intro i j l hij hjl hil
+    exact intersection_four_hybrid_empty n hn i j l hij hjl hil
 
 /-- ハイブリッド配置において、$n \ge 3$ 枚の平面に
 新しく $(n + 1)$ 枚目のモーメント平面を追加したとき、
