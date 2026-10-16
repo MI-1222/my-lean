@@ -3953,6 +3953,15 @@ lemma spaceRegionsCount_succ_ge (n : ℕ) (H : Fin (n + 1) → Plane3) :
     simp only [hsp_not, ↓reduceIte]
     exact Nat.zero_le _
 
+/-- 任意の平面配置において、新しい平面を追加したときの空間領域数は、
+既存の領域数と追加平面によって切断される領域数の和に厳密に一致する。 -/
+lemma spaceRegionsCount_succ_eq_add_split (n : ℕ) (H : Fin (n + 1) → Plane3) :
+    spaceRegionsCount (n + 1) H =
+      spaceRegionsCount n (H ∘ Fin.castSucc) + splitSpaceRegionsCount n H := by
+  have h1 := spaceRegionsCount_succ_le_add_split n H
+  have h2 := spaceRegionsCount_succ_ge n H
+  omega
+
 /-- 2次元符号ベクトルτから、3次元符号ベクトルへの対応は恒等写像である。 -/
 lemma mem_convexSpaceRegion_of_mem_convexPlaneRegion (n : ℕ) (H : Fin (n + 1) → Plane3)
     (hgen : GeneralPositionPlanes (n + 1) H)
@@ -4431,11 +4440,479 @@ theorem problem_4_2_proof (n : ℕ) (hn : 2 ≤ n) :
   dsimp [secondSpaceRegionsFormula, maxSpaceRegionsFormula]
   omega
 
+/-! ### n = 2 における平行平面配置による領域数3の達成 -/
+
+/-- 第2軸 $(0, 0, 1)$ 方向の単位法線ベクトル。 -/
+def e2Vec : Space3 :=
+  (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![(0 : ℝ), 0, 1]
+
+/-- 法線ベクトル e2Vec は非ゼロである。 -/
+lemma e2Vec_ne_zero : e2Vec ≠ 0 := by
+  intro h
+  have h2 : (WithLp.equiv 2 (Fin 3 → ℝ)) e2Vec 2 =
+            (WithLp.equiv 2 (Fin 3 → ℝ)) 0 2 := by rw [h]
+  simp [e2Vec] at h2
+
+/-- z座標が $c$ である平面 $z = c$。 -/
+def zPlane (c : ℝ) : Plane3 where
+  normVec := e2Vec
+  normVec_ne_zero := e2Vec_ne_zero
+  offset := c
+
+/-- e2Vec と任意の点の内積はz座標に一致する。 -/
+lemma inner_e2Vec (p : Space3) :
+    @inner ℝ Space3 _ e2Vec p = p 2 := by
+  have h := PiLp.inner_apply (𝕜 := ℝ) (x := e2Vec) (y := p)
+  rw [h, Fin.sum_univ_three]
+  simp only [Real.inner_apply]
+  change (0 : ℝ) * p 0 + (0 : ℝ) * p 1 + (1 : ℝ) * p 2 = p 2
+  ring
+
+/-- z軸上の点 $(0, 0, z)$。 -/
+def ptZ (z : ℝ) : Space3 :=
+  (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![(0 : ℝ), 0, z]
+
+lemma ptZ_apply_two (z : ℝ) : (ptZ z) 2 = z := rfl
+
+lemma inner_e2Vec_ptZ (z : ℝ) :
+    @inner ℝ Space3 _ e2Vec (ptZ z) = z := by
+  rw [inner_e2Vec, ptZ_apply_two]
+
+/-- 2枚の平行な平面 $z = 0$ および $z = 1$ からなる配置。 -/
+def H_two_parallel : Fin 2 → Plane3 :=
+  ![zPlane 0, zPlane 1]
+
+/-- 平行な2平面 $z = 0$ と $z = 1$ は相異なる。 -/
+lemma distinctPlanes_two_parallel : DistinctPlanes 2 H_two_parallel := by
+  intro i j hij
+  fin_cases i <;> fin_cases j
+  · rfl
+  · exfalso
+    change (H_two_parallel 0).toSet = (H_two_parallel 1).toSet at hij
+    have hmem : ptZ 0 ∈ (H_two_parallel 0).toSet := by
+      dsimp [Plane3.toSet, H_two_parallel, zPlane]
+      rw [inner_e2Vec_ptZ]
+    have hmem' : ptZ 0 ∈ (H_two_parallel 1).toSet := by
+      rw [← hij]
+      exact hmem
+    dsimp [Plane3.toSet, H_two_parallel, zPlane] at hmem'
+    rw [inner_e2Vec_ptZ] at hmem'
+    linarith
+  · exfalso
+    change (H_two_parallel 1).toSet = (H_two_parallel 0).toSet at hij
+    have hmem : ptZ 1 ∈ (H_two_parallel 1).toSet := by
+      dsimp [Plane3.toSet, H_two_parallel, zPlane]
+      rw [inner_e2Vec_ptZ]
+    rw [hij] at hmem
+    dsimp [Plane3.toSet, H_two_parallel, zPlane] at hmem
+    rw [inner_e2Vec_ptZ] at hmem
+    linarith
+  · rfl
+
+/-- $z < 0$ かつ $z > 1$ は両立不能であるため、
+符号ベクトル (false, true) の領域は空集合である。 -/
+lemma convexSpaceRegion_two_parallel_false_true_empty :
+    ¬ (convexSpaceRegion 2 H_two_parallel ![(false : Bool), true]).Nonempty := by
+  rintro ⟨p, hp⟩
+  have h0 := hp 0
+  have h1 := hp 1
+  dsimp [convexSpaceRegion, H_two_parallel, zPlane] at h0 h1
+  rw [inner_e2Vec] at h0 h1
+  linarith
+
+lemma convexSpaceRegion_two_parallel_false_false_nonempty :
+    (convexSpaceRegion 2 H_two_parallel ![(false : Bool), false]).Nonempty := by
+  use ptZ (-1)
+  intro i
+  fin_cases i
+  · dsimp [convexSpaceRegion, H_two_parallel, zPlane]
+    rw [inner_e2Vec_ptZ]
+    linarith
+  · dsimp [convexSpaceRegion, H_two_parallel, zPlane]
+    rw [inner_e2Vec_ptZ]
+    linarith
+
+lemma convexSpaceRegion_two_parallel_true_false_nonempty :
+    (convexSpaceRegion 2 H_two_parallel ![(true : Bool), false]).Nonempty := by
+  use ptZ (1 / 2)
+  intro i
+  fin_cases i
+  · dsimp [convexSpaceRegion, H_two_parallel, zPlane]
+    rw [inner_e2Vec_ptZ]
+    linarith
+  · dsimp [convexSpaceRegion, H_two_parallel, zPlane]
+    rw [inner_e2Vec_ptZ]
+    linarith
+
+lemma convexSpaceRegion_two_parallel_true_true_nonempty :
+    (convexSpaceRegion 2 H_two_parallel ![(true : Bool), true]).Nonempty := by
+  use ptZ 2
+  intro i
+  fin_cases i
+  · dsimp [convexSpaceRegion, H_two_parallel, zPlane]
+    rw [inner_e2Vec_ptZ]
+    linarith
+  · dsimp [convexSpaceRegion, H_two_parallel, zPlane]
+    rw [inner_e2Vec_ptZ]
+    linarith
+
+lemma signVector_two_cases (σ : Fin 2 → Bool) :
+    σ = ![(false : Bool), false] ∨
+    σ = ![(true : Bool), false] ∨
+    σ = ![(true : Bool), true] ∨
+    σ = ![(false : Bool), true] := by
+  have h0 : σ 0 = false ∨ σ 0 = true := by cases σ 0 <;> simp
+  have h1 : σ 1 = false ∨ σ 1 = true := by cases σ 1 <;> simp
+  rcases h0 with h0 | h0 <;> rcases h1 with h1 | h1
+  · left
+    ext i; fin_cases i <;> assumption
+  · right; right; right
+    ext i; fin_cases i <;> assumption
+  · right; left
+    ext i; fin_cases i <;> assumption
+  · right; right; left
+    ext i; fin_cases i <;> assumption
+
+/-- 2枚の平行な平面配置による領域数はちょうど3である。 -/
+lemma spaceRegionsCount_two_parallel_eq_three :
+    spaceRegionsCount 2 H_two_parallel = 3 := by
+  rw [spaceRegionsCount_eq_card_nonempty_convexSpaceRegion]
+  have hs : (Finset.filter (fun σ =>
+      (convexSpaceRegion 2 H_two_parallel σ).Nonempty) Finset.univ) =
+      {![(false : Bool), false], ![(true : Bool), false], ![(true : Bool), true]} := by
+    ext σ
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and,
+      Finset.mem_insert, Finset.mem_singleton]
+    constructor
+    · intro hne
+      rcases signVector_two_cases σ with h | h | h | h
+      · left; exact h
+      · right; left; exact h
+      · right; right; exact h
+      · subst h
+        exact (convexSpaceRegion_two_parallel_false_true_empty hne).elim
+    · rintro (rfl | rfl | rfl)
+      · exact convexSpaceRegion_two_parallel_false_false_nonempty
+      · exact convexSpaceRegion_two_parallel_true_false_nonempty
+      · exact convexSpaceRegion_two_parallel_true_true_nonempty
+  rw [hs]
+  decide
+
+/-- 2枚の平行な平面による配置の領域数は3である。 -/
+lemma spaceRegionsCount_two_parallel :
+    ∃ (H : Fin 2 → Plane3), DistinctPlanes 2 H ∧ spaceRegionsCount 2 H = 3 :=
+  ⟨H_two_parallel, distinctPlanes_two_parallel, spaceRegionsCount_two_parallel_eq_three⟩
+
+/-! ### n = 3 における三角柱平面配置による領域数7の達成 -/
+
+/-- xy 平面上の点 $(x, y, 0)$。 -/
+def ptXY (x y : ℝ) : Space3 :=
+  (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![x, y, (0 : ℝ)]
+
+lemma ptXY_apply_zero (x y : ℝ) : (ptXY x y) 0 = x := rfl
+lemma ptXY_apply_one (x y : ℝ) : (ptXY x y) 1 = y := rfl
+lemma ptXY_apply_two (x y : ℝ) : (ptXY x y) 2 = 0 := rfl
+
+/-- 第0軸 $(1, 0, 0)$ 方向の法線ベクトル。 -/
+def v0_vec : Space3 :=
+  (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![(1 : ℝ), 0, 0]
+
+lemma v0_vec_ne_zero : v0_vec ≠ 0 := by
+  intro h
+  have h0 : (WithLp.equiv 2 (Fin 3 → ℝ)) v0_vec 0 =
+            (WithLp.equiv 2 (Fin 3 → ℝ)) 0 0 := by rw [h]
+  simp [v0_vec] at h0
+
+/-- 第1軸 $(0, 1, 0)$ 方向の法線ベクトル。 -/
+def v1_vec : Space3 :=
+  (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![(0 : ℝ), 1, 0]
+
+lemma v1_vec_ne_zero : v1_vec ≠ 0 := by
+  intro h
+  have h1 : (WithLp.equiv 2 (Fin 3 → ℝ)) v1_vec 1 =
+            (WithLp.equiv 2 (Fin 3 → ℝ)) 0 1 := by rw [h]
+  simp [v1_vec] at h1
+
+/-- 斜め方向 $(1, 1, 0)$ の法線ベクトル。 -/
+def v2_vec : Space3 :=
+  (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![(1 : ℝ), 1, 0]
+
+lemma v2_vec_ne_zero : v2_vec ≠ 0 := by
+  intro h
+  have h0 : (WithLp.equiv 2 (Fin 3 → ℝ)) v2_vec 0 =
+            (WithLp.equiv 2 (Fin 3 → ℝ)) 0 0 := by rw [h]
+  simp [v2_vec] at h0
+
+lemma inner_v0_vec (p : Space3) :
+    @inner ℝ Space3 _ v0_vec p = p 0 := by
+  have h := PiLp.inner_apply (𝕜 := ℝ) (x := v0_vec) (y := p)
+  rw [h, Fin.sum_univ_three]
+  simp only [Real.inner_apply]
+  change (1 : ℝ) * p 0 + (0 : ℝ) * p 1 + (0 : ℝ) * p 2 = p 0
+  ring
+
+lemma inner_v1_vec (p : Space3) :
+    @inner ℝ Space3 _ v1_vec p = p 1 := by
+  have h := PiLp.inner_apply (𝕜 := ℝ) (x := v1_vec) (y := p)
+  rw [h, Fin.sum_univ_three]
+  simp only [Real.inner_apply]
+  change (0 : ℝ) * p 0 + (1 : ℝ) * p 1 + (0 : ℝ) * p 2 = p 1
+  ring
+
+lemma inner_v2_vec (p : Space3) :
+    @inner ℝ Space3 _ v2_vec p = p 0 + p 1 := by
+  have h := PiLp.inner_apply (𝕜 := ℝ) (x := v2_vec) (y := p)
+  rw [h, Fin.sum_univ_three]
+  simp only [Real.inner_apply]
+  change (1 : ℝ) * p 0 + (1 : ℝ) * p 1 + (0 : ℝ) * p 2 = p 0 + p 1
+  ring
+
+lemma inner_v0_ptXY (x y : ℝ) : @inner ℝ Space3 _ v0_vec (ptXY x y) = x := by
+  rw [inner_v0_vec, ptXY_apply_zero]
+
+lemma inner_v1_ptXY (x y : ℝ) : @inner ℝ Space3 _ v1_vec (ptXY x y) = y := by
+  rw [inner_v1_vec, ptXY_apply_one]
+
+lemma inner_v2_ptXY (x y : ℝ) : @inner ℝ Space3 _ v2_vec (ptXY x y) = x + y := by
+  rw [inner_v2_vec, ptXY_apply_zero, ptXY_apply_one]
+
+/-- 平面 $x = 0$。 -/
+def plane_x0 : Plane3 where
+  normVec := v0_vec
+  normVec_ne_zero := v0_vec_ne_zero
+  offset := 0
+
+/-- 平面 $y = 0$。 -/
+def plane_y0 : Plane3 where
+  normVec := v1_vec
+  normVec_ne_zero := v1_vec_ne_zero
+  offset := 0
+
+/-- 平面 $x + y = 1$。 -/
+def plane_xy1 : Plane3 where
+  normVec := v2_vec
+  normVec_ne_zero := v2_vec_ne_zero
+  offset := 1
+
+/-- 三角柱をなす3平面 $x = 0$, $y = 0$, $x + y = 1$ からなる配置。 -/
+def H_three_prism : Fin 3 → Plane3 :=
+  ![plane_x0, plane_y0, plane_xy1]
+
+/-- 3枚の平面は相異なる。 -/
+lemma distinctPlanes_three_prism : DistinctPlanes 3 H_three_prism := by
+  intro i j hij
+  fin_cases i <;> fin_cases j
+  · rfl
+  · exfalso
+    change (H_three_prism 0).toSet = (H_three_prism 1).toSet at hij
+    have hmem : ptXY 0 1 ∈ (H_three_prism 0).toSet := by
+      dsimp [Plane3.toSet, H_three_prism, plane_x0]
+      rw [inner_v0_ptXY]
+    rw [hij] at hmem
+    dsimp [Plane3.toSet, H_three_prism, plane_y0] at hmem
+    rw [inner_v1_ptXY] at hmem
+    linarith
+  · exfalso
+    change (H_three_prism 0).toSet = (H_three_prism 2).toSet at hij
+    have hmem : ptXY 0 0 ∈ (H_three_prism 0).toSet := by
+      dsimp [Plane3.toSet, H_three_prism, plane_x0]
+      rw [inner_v0_ptXY]
+    rw [hij] at hmem
+    dsimp [Plane3.toSet, H_three_prism, plane_xy1] at hmem
+    rw [inner_v2_ptXY] at hmem
+    linarith
+  · exfalso
+    change (H_three_prism 1).toSet = (H_three_prism 0).toSet at hij
+    have hmem : ptXY 1 0 ∈ (H_three_prism 1).toSet := by
+      dsimp [Plane3.toSet, H_three_prism, plane_y0]
+      rw [inner_v1_ptXY]
+    rw [hij] at hmem
+    dsimp [Plane3.toSet, H_three_prism, plane_x0] at hmem
+    rw [inner_v0_ptXY] at hmem
+    linarith
+  · rfl
+  · exfalso
+    change (H_three_prism 1).toSet = (H_three_prism 2).toSet at hij
+    have hmem : ptXY 0 0 ∈ (H_three_prism 1).toSet := by
+      dsimp [Plane3.toSet, H_three_prism, plane_y0]
+      rw [inner_v1_ptXY]
+    rw [hij] at hmem
+    dsimp [Plane3.toSet, H_three_prism, plane_xy1] at hmem
+    rw [inner_v2_ptXY] at hmem
+    linarith
+  · exfalso
+    change (H_three_prism 2).toSet = (H_three_prism 0).toSet at hij
+    have hmem : ptXY 0 0 ∈ (H_three_prism 0).toSet := by
+      dsimp [Plane3.toSet, H_three_prism, plane_x0]
+      rw [inner_v0_ptXY]
+    rw [← hij] at hmem
+    dsimp [Plane3.toSet, H_three_prism, plane_xy1] at hmem
+    rw [inner_v2_ptXY] at hmem
+    linarith
+  · exfalso
+    change (H_three_prism 2).toSet = (H_three_prism 1).toSet at hij
+    have hmem : ptXY 0 0 ∈ (H_three_prism 1).toSet := by
+      dsimp [Plane3.toSet, H_three_prism, plane_y0]
+      rw [inner_v1_ptXY]
+    rw [← hij] at hmem
+    dsimp [Plane3.toSet, H_three_prism, plane_xy1] at hmem
+    rw [inner_v2_ptXY] at hmem
+    linarith
+  · rfl
+
+/-- $x < 0$ かつ $y < 0$ かつ $x + y > 1$ は両立不能であるため、
+符号ベクトル (false, false, true) の領域は空集合である。 -/
+lemma convexSpaceRegion_three_prism_FFT_empty :
+    ¬ (convexSpaceRegion 3 H_three_prism ![(false : Bool), false, true]).Nonempty := by
+  rintro ⟨p, hp⟩
+  have h0 := hp 0
+  have h1 := hp 1
+  have h2 := hp 2
+  dsimp [convexSpaceRegion, H_three_prism, plane_x0, plane_y0, plane_xy1] at h0 h1 h2
+  rw [inner_v0_vec] at h0
+  rw [inner_v1_vec] at h1
+  rw [inner_v2_vec] at h2
+  linarith
+
+lemma convexSpaceRegion_three_prism_FFF_nonempty :
+    (convexSpaceRegion 3 H_three_prism ![(false : Bool), false, false]).Nonempty := by
+  use ptXY (-1) (-1)
+  intro i; fin_cases i
+  · dsimp [convexSpaceRegion, H_three_prism, plane_x0]; rw [inner_v0_ptXY]; linarith
+  · dsimp [convexSpaceRegion, H_three_prism, plane_y0]; rw [inner_v1_ptXY]; linarith
+  · dsimp [convexSpaceRegion, H_three_prism, plane_xy1]; rw [inner_v2_ptXY]; linarith
+
+lemma convexSpaceRegion_three_prism_TFF_nonempty :
+    (convexSpaceRegion 3 H_three_prism ![(true : Bool), false, false]).Nonempty := by
+  use ptXY (1 / 2) (-1)
+  intro i; fin_cases i
+  · dsimp [convexSpaceRegion, H_three_prism, plane_x0]; rw [inner_v0_ptXY]; linarith
+  · dsimp [convexSpaceRegion, H_three_prism, plane_y0]; rw [inner_v1_ptXY]; linarith
+  · dsimp [convexSpaceRegion, H_three_prism, plane_xy1]; rw [inner_v2_ptXY]; linarith
+
+lemma convexSpaceRegion_three_prism_TFT_nonempty :
+    (convexSpaceRegion 3 H_three_prism ![(true : Bool), false, true]).Nonempty := by
+  use ptXY 3 (-1)
+  intro i; fin_cases i
+  · dsimp [convexSpaceRegion, H_three_prism, plane_x0]; rw [inner_v0_ptXY]; linarith
+  · dsimp [convexSpaceRegion, H_three_prism, plane_y0]; rw [inner_v1_ptXY]; linarith
+  · dsimp [convexSpaceRegion, H_three_prism, plane_xy1]; rw [inner_v2_ptXY]; linarith
+
+lemma convexSpaceRegion_three_prism_FTF_nonempty :
+    (convexSpaceRegion 3 H_three_prism ![(false : Bool), true, false]).Nonempty := by
+  use ptXY (-1) (1 / 2)
+  intro i; fin_cases i
+  · dsimp [convexSpaceRegion, H_three_prism, plane_x0]; rw [inner_v0_ptXY]; linarith
+  · dsimp [convexSpaceRegion, H_three_prism, plane_y0]; rw [inner_v1_ptXY]; linarith
+  · dsimp [convexSpaceRegion, H_three_prism, plane_xy1]; rw [inner_v2_ptXY]; linarith
+
+lemma convexSpaceRegion_three_prism_FTT_nonempty :
+    (convexSpaceRegion 3 H_three_prism ![(false : Bool), true, true]).Nonempty := by
+  use ptXY (-1) 3
+  intro i; fin_cases i
+  · dsimp [convexSpaceRegion, H_three_prism, plane_x0]; rw [inner_v0_ptXY]; linarith
+  · dsimp [convexSpaceRegion, H_three_prism, plane_y0]; rw [inner_v1_ptXY]; linarith
+  · dsimp [convexSpaceRegion, H_three_prism, plane_xy1]; rw [inner_v2_ptXY]; linarith
+
+lemma convexSpaceRegion_three_prism_TTF_nonempty :
+    (convexSpaceRegion 3 H_three_prism ![(true : Bool), true, false]).Nonempty := by
+  use ptXY (1 / 3) (1 / 3)
+  intro i; fin_cases i
+  · dsimp [convexSpaceRegion, H_three_prism, plane_x0]; rw [inner_v0_ptXY]; linarith
+  · dsimp [convexSpaceRegion, H_three_prism, plane_y0]; rw [inner_v1_ptXY]; linarith
+  · dsimp [convexSpaceRegion, H_three_prism, plane_xy1]; rw [inner_v2_ptXY]; linarith
+
+lemma convexSpaceRegion_three_prism_TTT_nonempty :
+    (convexSpaceRegion 3 H_three_prism ![(true : Bool), true, true]).Nonempty := by
+  use ptXY 1 1
+  intro i; fin_cases i
+  · dsimp [convexSpaceRegion, H_three_prism, plane_x0]; rw [inner_v0_ptXY]; linarith
+  · dsimp [convexSpaceRegion, H_three_prism, plane_y0]; rw [inner_v1_ptXY]; linarith
+  · dsimp [convexSpaceRegion, H_three_prism, plane_xy1]; rw [inner_v2_ptXY]; linarith
+
+lemma signVector_three_cases (σ : Fin 3 → Bool) :
+    σ = ![(false : Bool), false, false] ∨
+    σ = ![(true : Bool), false, false] ∨
+    σ = ![(true : Bool), false, true] ∨
+    σ = ![(false : Bool), true, false] ∨
+    σ = ![(false : Bool), true, true] ∨
+    σ = ![(true : Bool), true, false] ∨
+    σ = ![(true : Bool), true, true] ∨
+    σ = ![(false : Bool), false, true] := by
+  have h0 : σ 0 = false ∨ σ 0 = true := by cases σ 0 <;> simp
+  have h1 : σ 1 = false ∨ σ 1 = true := by cases σ 1 <;> simp
+  have h2 : σ 2 = false ∨ σ 2 = true := by cases σ 2 <;> simp
+  rcases h0 with h0 | h0 <;> rcases h1 with h1 | h1 <;> rcases h2 with h2 | h2
+  · left; ext i; fin_cases i <;> assumption
+  · right; right; right; right; right; right; right; ext i; fin_cases i <;> assumption
+  · right; right; right; left; ext i; fin_cases i <;> assumption
+  · right; right; right; right; left; ext i; fin_cases i <;> assumption
+  · right; left; ext i; fin_cases i <;> assumption
+  · right; right; left; ext i; fin_cases i <;> assumption
+  · right; right; right; right; right; left; ext i; fin_cases i <;> assumption
+  · right; right; right; right; right; right; left; ext i; fin_cases i <;> assumption
+
+/-- 3枚の三角柱をなす平面配置による領域数はちょうど 7 である。 -/
+lemma spaceRegionsCount_three_prism_eq_seven :
+    spaceRegionsCount 3 H_three_prism = 7 := by
+  rw [spaceRegionsCount_eq_card_nonempty_convexSpaceRegion]
+  have hs : (Finset.filter (fun σ =>
+      (convexSpaceRegion 3 H_three_prism σ).Nonempty) Finset.univ) =
+      {![(false : Bool), false, false],
+       ![(true : Bool), false, false],
+       ![(true : Bool), false, true],
+       ![(false : Bool), true, false],
+       ![(false : Bool), true, true],
+       ![(true : Bool), true, false],
+       ![(true : Bool), true, true]} := by
+    ext σ
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and,
+      Finset.mem_insert, Finset.mem_singleton]
+    constructor
+    · intro hne
+      rcases signVector_three_cases σ with h | h | h | h | h | h | h | h
+      · left; exact h
+      · right; left; exact h
+      · right; right; left; exact h
+      · right; right; right; left; exact h
+      · right; right; right; right; left; exact h
+      · right; right; right; right; right; left; exact h
+      · right; right; right; right; right; right; exact h
+      · subst h
+        exact (convexSpaceRegion_three_prism_FFT_empty hne).elim
+    · rintro (rfl | rfl | rfl | rfl | rfl | rfl | rfl)
+      · exact convexSpaceRegion_three_prism_FFF_nonempty
+      · exact convexSpaceRegion_three_prism_TFF_nonempty
+      · exact convexSpaceRegion_three_prism_TFT_nonempty
+      · exact convexSpaceRegion_three_prism_FTF_nonempty
+      · exact convexSpaceRegion_three_prism_FTT_nonempty
+      · exact convexSpaceRegion_three_prism_TTF_nonempty
+      · exact convexSpaceRegion_three_prism_TTT_nonempty
+  rw [hs]
+  decide
+
+/-- 3枚の三角柱をなす平面による配置の領域数は 7 である。 -/
+lemma spaceRegionsCount_three_prism :
+    ∃ (H : Fin 3 → Plane3), DistinctPlanes 3 H ∧ spaceRegionsCount 3 H = 7 :=
+  ⟨H_three_prism, distinctPlanes_three_prism, spaceRegionsCount_three_prism_eq_seven⟩
+
 /-- 第2位の領域数を達成する相異なる平面配置が存在する。 -/
 lemma exists_planes_secondSpaceRegions (n : ℕ) (hn : 2 ≤ n) :
     ∃ (H : Fin n → Plane3), DistinctPlanes n H ∧
       spaceRegionsCount n H = secondSpaceRegionsFormula n := by
-  sorry
+  by_cases hn2 : n = 2
+  · subst hn2
+    obtain ⟨H, hdist, hcount⟩ := spaceRegionsCount_two_parallel
+    refine ⟨H, hdist, ?_⟩
+    have h_sec2 : secondSpaceRegionsFormula 2 = 3 := space_regions_n_two.2
+    rw [h_sec2, hcount]
+  · by_cases hn3 : n = 3
+    · subst hn3
+      obtain ⟨H, hdist, hcount⟩ := spaceRegionsCount_three_prism
+      refine ⟨H, hdist, ?_⟩
+      have h_sec3 : secondSpaceRegionsFormula 3 = 7 := space_regions_n_three.2.1
+      rw [h_sec3, hcount]
+    · sorry
 
 /-- 【第4問 (2) の幾何学的解答】
 n ≥ 2 のとき、最大値未満の任意の配置の領域数は secondSpaceRegionsFormula n 以下であり、かつ達成可能である。 -/
@@ -4464,7 +4941,8 @@ theorem problem_4_3_proof (n : ℕ) (_hn : 3 ≤ n) :
     simp only [h4, ↓reduceIte]
     omega
 
-/-- 4枚の相異なる平面配置において、領域数が13となる配置は存在しない。 -/
+/-- 4枚の相異なる平面配置において、
+領域数が13となる配置は存在しない。 -/
 lemma spaceRegionsCount_four_ne_thirteen (H : Fin 4 → Plane3)
     (hdist : DistinctPlanes 4 H) :
     spaceRegionsCount 4 H ≠ 13 := by
