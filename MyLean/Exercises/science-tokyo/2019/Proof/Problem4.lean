@@ -554,18 +554,55 @@ lemma GeneralPositionLines.castSucc (k : ℕ) (L : Fin (k + 1) → Line2)
     exact hgen.2 (Fin.castSucc i) (Fin.castSucc j) (Fin.castSucc l) hij' hjl' hil'
 
 /-- 一般の位置にある直線配置において、第 $(k+1)$ 直線と既存の直線の交点はすべて相異なり、
-ちょうど $k$ 個存在する。平行条件および3直線共点条件の否定から従う。 -/
+ちょうど $k$ 個存在する。
+- どの2直線も平行でないため、交点インデックス集合は Fin k 全体となる。
+- どの3直線も1点で交わらないため、交点パラメータ写像は単射となる。 -/
 lemma card_lineIntersectionParams_eq_of_general_position (k : ℕ) (L : Fin (k + 1) → Line2)
     (hgen : GeneralPositionLines (k + 1) L) :
     (lineIntersectionParams k L).card = k := by
+  dsimp [lineIntersectionParams]
+  have h_indices : intersectingIndices k L = Finset.univ := by
+    ext i
+    simp only [intersectingIndices, Finset.mem_filter, Finset.mem_univ, true_and]
+    dsimp [hasIntersectionWithLast]
+    have hij : Fin.castSucc i ≠ Fin.last k := ne_of_lt (Fin.castSucc_lt_last i)
+    exact iff_true_intro (hgen.1 (Fin.castSucc i) (Fin.last k) hij)
+  rw [h_indices]
+  have h_inj : Function.Injective (rawIntersectionParam k L) := by
+    intro i j hij
+    by_contra h_ne
+    sorry
+  rw [Finset.card_image_of_injective _ h_inj]
+  exact Fintype.card_fin k
+
+/-- 一般の位置にある配置において、直線上の開区間数はちょうど $k + 1$ 個である。 -/
+lemma lineIntervals_eq_of_general_position (k : ℕ) (L : Fin (k + 1) → Line2)
+    (hgen : GeneralPositionLines (k + 1) L) :
+    realIntervalsCount (lineIntersectionParams k L) = k + 1 := by
+  sorry
+
+/-- 一般の位置にある配置において、切断される領域の個数はちょうど $k + 1$ 個である。 -/
+lemma splitRegionsCount_eq_of_general_position (k : ℕ) (L : Fin (k + 1) → Line2)
+    (hgen : GeneralPositionLines (k + 1) L) :
+    splitRegionsCount k L = k + 1 := by
   sorry
 
 /-- 一般の位置にある配置に新しい直線を追加したとき、
-増える平面領域の個数はちょうど $k + 1$ 個である。 -/
+増える領域の個数は切断領域の個数 ($k + 1$) 以上である。 -/
+lemma planeRegionsCount_succ_ge_of_general_position (k : ℕ) (L : Fin (k + 1) → Line2)
+    (hgen : GeneralPositionLines (k + 1) L) :
+    planeRegionsCount k (L ∘ Fin.castSucc) + (k + 1) ≤ planeRegionsCount (k + 1) L := by
+  sorry
+
+/-- 一般の位置にある配置に新しい直線を追加したとき、
+増える平面領域の個数はちょうど $k + 1$ 個である。
+上界不等式 planeRegionsCount_succ_le と下界不等式を組み合わせて証明される。 -/
 theorem planeRegionsCount_succ_eq_of_general_position (k : ℕ) (L : Fin (k + 1) → Line2)
     (hgen : GeneralPositionLines (k + 1) L) :
     planeRegionsCount (k + 1) L = planeRegionsCount k (L ∘ Fin.castSucc) + (k + 1) := by
-  sorry
+  have h_le := planeRegionsCount_succ_le k L
+  have h_ge := planeRegionsCount_succ_ge_of_general_position k L hgen
+  omega
 
 /-- 一般の位置にある直線配置に対する最大値達成定理:
 一般の位置にある直線配置 $L$ では、領域数が最大値 $S(k)$ に一致する。
