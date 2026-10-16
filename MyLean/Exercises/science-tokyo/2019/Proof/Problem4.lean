@@ -668,15 +668,37 @@ theorem spaceRegionsCount_eq_max_of_general_position (n : ℕ) (H : Fin n → Pl
 
 /-! ### モーメント曲線による一般の位置の陽的構成と等号達成 -/
 
+/-- パラメータ $t$ に対するモーメント平面の法線ベクトル $(1, t, t^2)$。 -/
+def momentVec (t : ℝ) : Space3 :=
+  (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![(1 : ℝ), t, t ^ 2]
+
+/-- モーメントベクトルの第0成分は $1$ であるため、0ベクトルではない。 -/
+lemma momentVec_ne_zero (t : ℝ) : momentVec t ≠ 0 := by
+  intro h
+  have h0 : (WithLp.equiv 2 (Fin 3 → ℝ)) (momentVec t) 0 =
+            (WithLp.equiv 2 (Fin 3 → ℝ)) 0 0 := by rw [h]
+  simp [momentVec] at h0
+
 /-- 実数パラメータ $t$ に対するモーメント平面:
 方程式 $x + ty + t^2 z = t^3$ により定義される。 -/
-def momentPlane (t : ℝ) : Plane3 :=
-  sorry
+def momentPlane (t : ℝ) : Plane3 where
+  normVec := momentVec t
+  normVec_ne_zero := momentVec_ne_zero t
+  offset := t ^ 3
 
-/-- パラメータが異なれば、モーメント平面は平行でない。 -/
+/-- パラメータが異なれば、モーメント平面は平行でない。
+法線ベクトルの第0成分からスカラー倍係数が $1$ に定まり、第1成分からパラメータの一致が導かれる。 -/
 lemma not_parallel_momentPlanes {t₁ t₂ : ℝ} (hne : t₁ ≠ t₂) :
     ¬ parallelPlanes (momentPlane t₁) (momentPlane t₂) := by
-  sorry
+  rintro ⟨c, hc⟩
+  have hc0 : (WithLp.equiv 2 (Fin 3 → ℝ)) (momentPlane t₁).normVec 0 =
+             (WithLp.equiv 2 (Fin 3 → ℝ)) (c • (momentPlane t₂).normVec) 0 := by rw [hc]
+  have hc1 : (WithLp.equiv 2 (Fin 3 → ℝ)) (momentPlane t₁).normVec 1 =
+             (WithLp.equiv 2 (Fin 3 → ℝ)) (c • (momentPlane t₂).normVec) 1 := by rw [hc]
+  simp [momentPlane, momentVec] at hc0 hc1
+  subst hc0
+  simp at hc1
+  exact hne hc1
 
 /-- 相異なる3つのモーメント平面は、解と係数の関係から定まる唯一の交点を持つ。 -/
 lemma intersection_three_momentPlanes {t₁ t₂ t₃ : ℝ}
