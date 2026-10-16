@@ -4896,6 +4896,83 @@ lemma spaceRegionsCount_three_prism :
     ∃ (H : Fin 3 → Plane3), DistinctPlanes 3 H ∧ spaceRegionsCount 3 H = 7 :=
   ⟨H_three_prism, distinctPlanes_three_prism, spaceRegionsCount_three_prism_eq_seven⟩
 
+/-! ### 三角柱とモーメント平面の配置 -/
+
+/-- 三角柱とモーメント平面を組み合わせた配置。
+最初の3平面は三角柱をなし、4枚目以降はモーメント平面とする。 -/
+def H_hybrid (n : ℕ) (i : Fin n) : Plane3 :=
+  if i.val = 0 then plane_x0
+  else if i.val = 1 then plane_y0
+  else if i.val = 2 then plane_xy1
+  else momentPlane (i.val : ℝ)
+
+/-- 配置の先頭n枚は、n枚の配置と完全に一致する。 -/
+lemma H_hybrid_castSucc (n : ℕ) :
+    H_hybrid (n + 1) ∘ Fin.castSucc = H_hybrid n := by
+  ext ⟨i, hi⟩
+  dsimp [H_hybrid]
+
+/-- $n = 3$ のとき、配置は三角柱配置 H_three_prism と一致する。 -/
+lemma H_hybrid_three_eq_three_prism :
+    H_hybrid 3 = H_three_prism := by
+  ext i
+  fin_cases i
+  · dsimp [H_hybrid, H_three_prism]
+  · dsimp [H_hybrid, H_three_prism]
+  · dsimp [H_hybrid, H_three_prism]
+
+/-- $n = 3$ のとき、配置の領域数はちょうど7である。 -/
+lemma spaceRegionsCount_hybrid_three :
+    spaceRegionsCount 3 (H_hybrid 3) = 7 := by
+  rw [H_hybrid_three_eq_three_prism]
+  exact spaceRegionsCount_three_prism_eq_seven
+
+/-- ハイブリッド配置において、$n \ge 3$ 枚の平面に
+新しく $(n + 1)$ 枚目のモーメント平面を追加したとき、
+切断領域数は最大平面領域数 maxPlaneRegions n に一致する。 -/
+lemma splitSpaceRegionsCount_hybrid (n : ℕ) (hn : 3 ≤ n) :
+    splitSpaceRegionsCount n (H_hybrid (n + 1)) = maxPlaneRegions n := by
+  sorry
+
+/-- $n \ge 3$ のとき、ハイブリッド配置の領域数は
+第2位の領域数 secondSpaceRegionsFormula n に一致する。 -/
+lemma spaceRegionsCount_hybrid (n : ℕ) (hn : 3 ≤ n) :
+    spaceRegionsCount n (H_hybrid n) = secondSpaceRegionsFormula n := by
+  obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le hn
+  clear hn
+  induction k with
+  | zero =>
+    rw [spaceRegionsCount_hybrid_three]
+    have h3 := space_regions_n_three.2.1
+    exact h3.symm
+  | succ k ih =>
+    have h_assoc : 3 + (k + 1) = 3 + k + 1 := by omega
+    rw [h_assoc]
+    have h_succ := spaceRegionsCount_succ_eq_add_split (3 + k) (H_hybrid (3 + k + 1))
+    rw [H_hybrid_castSucc (3 + k)] at h_succ
+    rw [h_succ]
+    have h_split := splitSpaceRegionsCount_hybrid (3 + k) (by omega)
+    rw [h_split, ih]
+    have h_sec_m := problem_4_2_proof (3 + k) (by omega)
+    have h_sec_succ := problem_4_2_proof (3 + k + 1) (by omega)
+    have h_max_succ := maxSpaceRegions_succ (3 + k)
+    have h_form_m := problem_4_1_proof (3 + k)
+    have h_form_succ := problem_4_1_proof (3 + k + 1)
+    have h_pos : 1 ≤ maxSpaceRegionsFormula (3 + k) := by
+      rw [← h_form_m]
+      dsimp [maxSpaceRegions]
+      rw [Nat.choose_zero_right]
+      omega
+    have h_rec : maxSpaceRegionsFormula (3 + k + 1) =
+        maxSpaceRegionsFormula (3 + k) + maxPlaneRegions (3 + k) := by
+      rw [← h_form_succ, ← h_form_m, h_max_succ]
+    omega
+
+/-- ハイブリッド配置の各平面は相異なる。 -/
+lemma distinctPlanes_hybrid (n : ℕ) :
+    DistinctPlanes n (H_hybrid n) := by
+  sorry
+
 /-- 一般の位置にある n 枚の平面配置に、切断領域数がちょうど S(n) - 1 となる
 新しい平面を追加したとき、得られる (n + 1) 枚の配置の領域数は
 第2位の領域数 secondSpaceRegionsFormula (n + 1) に一致する。 -/
@@ -4927,13 +5004,8 @@ lemma exists_planes_secondSpaceRegions (n : ℕ) (hn : 2 ≤ n) :
     refine ⟨H, hdist, ?_⟩
     have h_sec2 : secondSpaceRegionsFormula 2 = 3 := space_regions_n_two.2
     rw [h_sec2, hcount]
-  · by_cases hn3 : n = 3
-    · subst hn3
-      obtain ⟨H, hdist, hcount⟩ := spaceRegionsCount_three_prism
-      refine ⟨H, hdist, ?_⟩
-      have h_sec3 : secondSpaceRegionsFormula 3 = 7 := space_regions_n_three.2.1
-      rw [h_sec3, hcount]
-    · sorry
+  · have hn3 : 3 ≤ n := by omega
+    refine ⟨H_hybrid n, distinctPlanes_hybrid n, spaceRegionsCount_hybrid n hn3⟩
 
 /-- 【第4問 (2) の幾何学的解答】
 n ≥ 2 のとき、最大値未満の任意の配置の領域数は secondSpaceRegionsFormula n 以下であり、かつ達成可能である。 -/
