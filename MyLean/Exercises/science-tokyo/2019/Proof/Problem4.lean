@@ -336,12 +336,34 @@ lemma split_region_intersects_line (k : ℕ) (L : Fin (k + 1) → Line2) (σ : S
     (convexPlaneRegion k (L ∘ Fin.castSucc) σ ∩ (L (Fin.last k)).toSet).Nonempty := by
   exact hsplit
 
+/-- 異なる符号ベクトルが定める凸領域は平面全体で互いに素である。
+各直線に対する不等式 $a < b$ と $b < a$ の矛盾から従う。 -/
+lemma disjoint_convexPlaneRegion (k : ℕ) (L : Fin k → Line2)
+    (σ₁ σ₂ : SignVector2 k) (hne : σ₁ ≠ σ₂) :
+    Disjoint (convexPlaneRegion k L σ₁) (convexPlaneRegion k L σ₂) := by
+  rw [Set.disjoint_left]
+  intro x hx1 hx2
+  apply hne
+  funext i
+  have h1 := hx1 i
+  have h2 := hx2 i
+  cases h1_bool : σ₁ i <;> cases h2_bool : σ₂ i
+  · rfl
+  · rw [h1_bool] at h1; rw [h2_bool] at h2
+    dsimp at h1 h2
+    linarith
+  · rw [h1_bool] at h1; rw [h2_bool] at h2
+    dsimp at h1 h2
+    linarith
+  · rfl
+
 /-- 異なる凸領域から得られる直線上の交差区間は互いに素である。 -/
 lemma disjoint_intersections_on_line (k : ℕ) (L : Fin (k + 1) → Line2)
     (σ₁ σ₂ : SignVector2 k) (hne : σ₁ ≠ σ₂) :
     Disjoint (convexPlaneRegion k (L ∘ Fin.castSucc) σ₁ ∩ (L (Fin.last k)).toSet)
              (convexPlaneRegion k (L ∘ Fin.castSucc) σ₂ ∩ (L (Fin.last k)).toSet) := by
-  sorry
+  refine Disjoint.mono inf_le_left inf_le_left ?_
+  exact disjoint_convexPlaneRegion k (L ∘ Fin.castSucc) σ₁ σ₂ hne
 
 /-- 2次元平面における直線追加の幾何学的漸化不等式:
 $(k+1)$ 本目の直線を追加したとき、既存の $k$ 本の直線との交点で高々 $k+1$ 個の線分・半直線に分かれ、
