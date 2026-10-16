@@ -2,6 +2,8 @@ import Mathlib.Data.Finset.Sort
 import Mathlib.Data.Nat.Choose.Basic
 import Mathlib.Tactic.Ring
 import Mathlib.Topology.Order.Real
+import Mathlib.Topology.Connected.Clopen
+import Mathlib.Topology.Order.IntermediateValue
 import MyLean.Common
 import MyLean.Exercises.«science-tokyo».«2019».Statement
 
@@ -14,6 +16,8 @@ $$ T_{\max}(n) = \sum_{k=0}^3 \binom{n}{k} = \frac{n^3 + 5n + 6}{6} $$
 -/
 
 namespace MyLean.Exercises.«science-tokyo».«2019»
+
+open Set
 
 /-! ### 平面分割・空間分割の漸化式補題 -/
 
@@ -179,17 +183,119 @@ lemma maxPlaneRegions_succ_step (k : ℕ) :
 
 /-! #### ステップ 1: 1次元実数直線の有限点分割補題 -/
 
-/-- 実数直線上の有限点集合 S による補集合 ℝ \ S の開区間(連結成分)の個数。
-$m$ 個の相異なる点によって、実数直線は高々 $m + 1$ 個の互いに素な開区間に分割される。 -/
+/-- 点 $x$ より真に小さい有限集合 $S$ の元の個数。 -/
+noncomputable def countLt (S : Finset ℝ) (x : ℝ) : ℕ :=
+  (S.filter (· < x)).card
+
+/-- 各点におけるcountLtの値は高々集合 $S$ の要素数以下である。 -/
+lemma countLt_le (S : Finset ℝ) (x : ℝ) : countLt S x ≤ S.card :=
+  Finset.card_filter_le S (· < x)
+
+/-- countLtの値域を有限型`Fin(S.card+1)`に制限した写像。 -/
+noncomputable def countLtFin (S : Finset ℝ) (x : ℝ) : Fin (S.card + 1) :=
+  ⟨countLt S x, Nat.lt_succ_of_le (countLt_le S x)⟩
+
+/-- 2点 $x \le y$ でcountLtの値が一致し、両端点が $S$ に属さないならば、
+閉区間 $[x,y]$ と有限集合 $S$ は交わらない。 -/
+lemma disjoint_Icc_of_countLt_eq {S : Finset ℝ} {x y : ℝ} (hxy : x ≤ y)
+    (h_eq : countLt S x = countLt S y) (hx : x ∉ S) (hy : y ∉ S) :
+    Disjoint (Icc x y) (S : Set ℝ) := by
+  rw [Set.disjoint_left]
+  intro z hz hzS
+  have hz_in : z ∈ S := hzS
+  by_cases hzx : z = x
+  · subst hzx; exact hx hz_in
+  · by_cases hzy : z = y
+    · subst hzy; exact hy hz_in
+    · have hx_lt_z : x < z := lt_of_le_of_ne hz.1 (Ne.symm hzx)
+      have hz_lt_y : z < y := lt_of_le_of_ne hz.2 hzy
+      have h_sub : S.filter (· < x) ⊆ S.filter (· < y) := by
+        intro t ht
+        rw [Finset.mem_filter] at ht ⊢
+        exact ⟨ht.1, lt_of_lt_of_le ht.2 hxy⟩
+      have hz_not_in_x : z ∉ S.filter (· < x) := by
+        rw [Finset.mem_filter]
+        intro h
+        linarith
+      have hz_in_y : z ∈ S.filter (· < y) := by
+        rw [Finset.mem_filter]
+        exact ⟨hz_in, hz_lt_y⟩
+      have h_ssub : S.filter (· < x) ⊂ S.filter (· < y) :=
+        Finset.ssubset_iff_subset_ne.mpr ⟨h_sub, fun h => hz_not_in_x (h ▸ hz_in_y)⟩
+      have h_lt := Finset.card_lt_card h_ssub
+      dsimp [countLt] at h_eq
+      omega
+
+/-- 一般の商集合において、有限値関数がファイバー上で同値関係を満たすとき、
+商集合の濃度は終域の要素数以下である。 -/
+lemma card_quotient_le_of_fiber_le {α : Type*} (s : Setoid α) {β : Type*} [Fintype β]
+    (f : α → β) (h : ∀ x y, f x = f y → x ≈ y) :
+    Nat.card (Quotient s) ≤ Fintype.card β := by
+  let g : Quotient s → β := fun q => f q.out
+  have hg_inj : Function.Injective g := by
+    intro q1 q2 hg
+    dsimp [g] at hg
+    have hequiv := h q1.out q2.out hg
+    have h1 : Quotient.mk s q1.out = q1 := Quotient.out_eq q1
+    have h2 : Quotient.mk s q2.out = q2 := Quotient.out_eq q2
+    have hsound : Quotient.mk s q1.out = Quotient.mk s q2.out := Quotient.sound hequiv
+    exact h1.symm.trans (hsound.trans h2)
+  have h_le := Nat.card_le_card_of_injective g hg_inj
+  simpa only [Nat.card_eq_fintype_card] using h_le
+
+/-- countLtの値が一致する $x \le y$ に対し、閉区間 $[x,y]$ が補集合に含まれるため
+両者は同一の連結成分に属する。 -/
+lemma connectedComponent_eq_of_countLt_eq_le {S : Finset ℝ} (x y : {x : ℝ | x ∉ S})
+    (hle : x.val ≤ y.val) (h_eq : countLt S x.val = countLt S y.val) :
+    connectedComponent x = connectedComponent y := by
+  have hdisj : Disjoint (Icc x.val y.val) (S : Set ℝ) :=
+    disjoint_Icc_of_countLt_eq hle h_eq x.2 y.2
+  have h_sub : Icc x.val y.val ⊆ {z : ℝ | z ∉ S} := by
+    intro z hz hzS
+    have hzS' : z ∈ (S : Set ℝ) := hzS
+    exact Set.disjoint_left.mp hdisj hz hzS'
+  let f : Icc x.val y.val → {x : ℝ | x ∉ S} := fun ⟨z, hz⟩ => ⟨z, h_sub hz⟩
+  have hf_cont : Continuous f := Continuous.subtype_mk continuous_subtype_val _
+  have h_conn_icc : IsConnected (Icc x.val y.val) := isConnected_Icc hle
+  have : ConnectedSpace (Icc x.val y.val) := Subtype.connectedSpace h_conn_icc
+  have h_conn_range : IsConnected (range f) := isConnected_range hf_cont
+  have hx_in : x ∈ range f := by
+    use ⟨x.val, left_mem_Icc.mpr hle⟩
+  have hy_in : y ∈ range f := by
+    use ⟨y.val, right_mem_Icc.mpr hle⟩
+  have h_sub_comp : range f ⊆ connectedComponent x :=
+    IsConnected.subset_connectedComponent h_conn_range hx_in
+  exact connectedComponent_eq (h_sub_comp hy_in)
+
+/-- 写像countLtFinの値が一致する2点は、実数直線の順序関係に関わらず
+同一の連結成分に属する。 -/
+lemma connectedComponent_eq_of_countLtFin_eq {S : Finset ℝ} (x y : {x : ℝ | x ∉ S})
+    (h_eq : countLtFin S x.val = countLtFin S y.val) :
+    connectedComponent x = connectedComponent y := by
+  have h_count_eq : countLt S x.val = countLt S y.val := congr_arg Fin.val h_eq
+  rcases le_total x.val y.val with hle | hle
+  · exact connectedComponent_eq_of_countLt_eq_le x y hle h_count_eq
+  · exact (connectedComponent_eq_of_countLt_eq_le y x hle h_count_eq.symm).symm
+
+/-- 実数直線上の有限点集合Sによる補集合ℝ\Sの開区間(連結成分)の個数。
+$m$ 個の相異なる点によって、実数直線は高々 $m+1$ 個の互いに素な開区間に分割される。 -/
 noncomputable def realIntervalsCount (S : Finset ℝ) : ℕ :=
   Nat.card (ConnectedComponents ({x : ℝ | x ∉ S}))
 
-/-- 実数直線の有限点分割に関する上界補題:
-有限点集合 $S$ による補集合の開区間(凸連結成分)の個数は card S + 1 以下である。
-昇順リスト (-∞, x₀), (x₀, x₁), ..., (x_{m-1}, ∞) の $m + 1$ 個の区間分解に対応する。 -/
-lemma card_intervals_of_finset_real (S : Finset ℝ) :
+/-- 実数直線の有限点分割に関する上界定理:
+有限点集合 $S$ による補集合の開区間(連結成分)の個数は高々 $|S| + 1$ 個である。
+各連結成分を左側の点の個数により`Fin(S.card+1)`へ単射づけることで証明される。 -/
+theorem card_intervals_of_finset_real (S : Finset ℝ) :
     realIntervalsCount S ≤ S.card + 1 := by
-  sorry
+  let α := {x : ℝ | x ∉ S}
+  let s : Setoid α := connectedComponentSetoid α
+  let f : α → Fin (S.card + 1) := fun x => countLtFin S x.val
+  have h_fiber : ∀ x y : α, f x = f y → x ≈ y := by
+    intro x y hfg
+    exact connectedComponent_eq_of_countLtFin_eq x y hfg
+  have h_le := card_quotient_le_of_fiber_le s f h_fiber
+  rw [Fintype.card_fin] at h_le
+  exact h_le
 
 /-! #### ステップ 2: 直線同士の交点数の上界 -/
 
