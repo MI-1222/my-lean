@@ -1,3 +1,4 @@
+import Mathlib.Analysis.InnerProductSpace.PiL2
 import Mathlib.Analysis.Real.Sqrt
 import Mathlib.Analysis.SpecialFunctions.Log.Basic
 import Mathlib.Data.Finset.Card
@@ -5,6 +6,8 @@ import Mathlib.Data.Nat.Choose.Basic
 import Mathlib.Data.Nat.Factorial.Basic
 import Mathlib.Data.Rat.Defs
 import Mathlib.Basic.Real.Basic
+import Mathlib.SetTheory.Cardinal.Finite
+import Mathlib.Topology.Connected.Basic
 import MyLean.Common
 
 /-!
@@ -122,7 +125,57 @@ theorem problem_3_2 :
 $H₁, \dots, Hₙ$ を空間内の相異なる $n$ 枚の平面とする。
 $H₁, \dots, Hₙ$ によって空間が $T(H₁, \dots, Hₙ)$ 個の空間領域に分割されるとする。
 (1) 各 $n$ に対して $T(H₁, \dots, Hₙ)$ のとりうる値のうち最も大きいものを求めよ。
+(2) $n \ge 2$ のとき、$T(H₁, \dots, Hₙ)$ のとりうる値のうち2番目に大きいものを求めよ。
+(3) $n \ge 3$ のとき、$T(H₁, \dots, Hₙ)$ のとりうる値のうち3番目に大きいものを求めよ。
 -/
+
+/-! ### 幾何学的モデルの定義(3次元空間・2次元平面・領域分割) -/
+
+/-- 3次元ユークリッド空間 $\mathbb{R}^3$。 -/
+abbrev Space3 : Type := EuclideanSpace ℝ (Fin 3)
+
+/-- 2次元ユークリッド空間 $\mathbb{R}^2$。 -/
+abbrev Plane2 : Type := EuclideanSpace ℝ (Fin 2)
+
+/-- 2次元平面内の直線を表す構造体。法線ベクトル $u \neq 0$ と実数 $d$ により $\{x \mid \langle u, x \rangle = d\}$ を定める。 -/
+structure Line2 where
+  normVec : Plane2
+  normVec_ne_zero : normVec ≠ 0
+  offset : ℝ
+
+/-- 2次元直線が定める点集合。 -/
+def Line2.toSet (L : Line2) : Set Plane2 :=
+  {x : Plane2 | @inner ℝ Plane2 _ L.normVec x = L.offset}
+
+/-- 2次元平面上の直線配置が相異なる条件。 -/
+def DistinctLines (k : ℕ) (L : Fin k → Line2) : Prop :=
+  Function.Injective (fun i => (L i).toSet)
+
+/-- 2次元平面上の直線配置による平面領域数 $S(L)$。
+直線群の補集合における位相的連結成分の個数として定義される。 -/
+noncomputable def planeRegionsCount (k : ℕ) (L : Fin k → Line2) : ℕ :=
+  Nat.card (ConnectedComponents ({x : Plane2 | ∀ i, x ∉ (L i).toSet}))
+
+/-- 3次元空間内の平面を表す構造体。法線ベクトル $v \neq 0$ と実数 $c$ により $\{x \mid \langle v, x \rangle = c\}$ を定める。 -/
+structure Plane3 where
+  normVec : Space3
+  normVec_ne_zero : normVec ≠ 0
+  offset : ℝ
+
+/-- 3次元平面が定める点集合。 -/
+def Plane3.toSet (H : Plane3) : Set Space3 :=
+  {x : Space3 | @inner ℝ Space3 _ H.normVec x = H.offset}
+
+/-- 3次元空間内の平面配置が相異なる条件。 -/
+def DistinctPlanes (n : ℕ) (H : Fin n → Plane3) : Prop :=
+  Function.Injective (fun i => (H i).toSet)
+
+/-- 3次元空間内の平面配置による空間領域数 $T(H)$。
+平面群の補集合における位相的連結成分の個数として厳密に定義される。 -/
+noncomputable def spaceRegionsCount (n : ℕ) (H : Fin n → Plane3) : ℕ :=
+  Nat.card (ConnectedComponents ({x : Space3 | ∀ i, x ∉ (H i).toSet}))
+
+/-! ### 代数的組合せ公式 -/
 
 /-- 平面分割の最大数を表す組合せ数の和 ∑_{k=0}^3 binom(n, k)。 -/
 def maxSpaceRegions (n : ℕ) : ℕ :=
@@ -132,33 +185,65 @@ def maxSpaceRegions (n : ℕ) : ℕ :=
 def maxSpaceRegionsFormula (n : ℕ) : ℕ :=
   (n ^ 3 + 5 * n + 6) / 6
 
-/-- 【第4問 (1)】
-平面分割の最大個数は多項式 (n^3 + 5n + 6) / 6 と一致する。 -/
-theorem problem_4_1 (n : ℕ) :
-    maxSpaceRegions n = maxSpaceRegionsFormula n := by
-  sorry
-
 /-- 3次元空間における平面分割の第2位(2番目に大きい値)の多項式表現。 -/
 def secondSpaceRegionsFormula (n : ℕ) : ℕ :=
   (n ^ 3 + 5 * n) / 6
-
-/-- 【第4問 (2)】
-n ≥ 2 のとき、空間分割の2番目に大きい値は最大値より 1 小さく、多項式 (n^3 + 5n) / 6 と一致する。 -/
-theorem problem_4_2 (n : ℕ) (hn : 2 ≤ n) :
-    secondSpaceRegionsFormula n = maxSpaceRegionsFormula n - 1 := by
-  sorry
 
 /-- 3次元空間における平面分割の第3位(3番目に大きい値)の表現。
 n = 4 のときのみ幾何学的配置の制限により例外値 12 となり、それ以外では (n^3 + 5n - 6) / 6 である。 -/
 def thirdSpaceRegionsFormula (n : ℕ) : ℕ :=
   if n = 4 then 12 else (n ^ 3 + 5 * n - 6) / 6
 
-/-- 【第4問 (3)】
-n ≥ 3 のとき、空間分割の3番目に大きい値は、n = 4 のとき例外値 12 であり、
-n ≠ 4 のとき最大値より 2 小さい値 (n^3 + 5n - 6) / 6 である。 -/
+/-! ### 本問の主定理(代数公式との整合および幾何学的性質) -/
+
+/-- 【第4問 (1) 代数公式の一致】
+組合せ論的表現 maxSpaceRegions n は多項式 (n³ + 5n + 6) / 6 と一致する。 -/
+theorem problem_4_1 (n : ℕ) :
+    maxSpaceRegions n = maxSpaceRegionsFormula n := by
+  sorry
+
+/-- 【第4問 (1) 幾何学的最大値の評価と達成可能性】
+相異なる n 枚の平面による領域数は常に maxSpaceRegionsFormula n 以下であり、かつ等号を達成する配置が存在する。 -/
+theorem problem_4_1_geometric (n : ℕ) :
+    (∀ (H : Fin n → Plane3), DistinctPlanes n H →
+      spaceRegionsCount n H ≤ maxSpaceRegionsFormula n) ∧
+    (∃ (H : Fin n → Plane3), DistinctPlanes n H ∧
+      spaceRegionsCount n H = maxSpaceRegionsFormula n) := by
+  sorry
+
+/-- 【第4問 (2) 代数公式の一致】
+n ≥ 2 のとき、第2位の多項式表現は最大値より 1 小さい。 -/
+theorem problem_4_2 (n : ℕ) (hn : 2 ≤ n) :
+    secondSpaceRegionsFormula n = maxSpaceRegionsFormula n - 1 := by
+  sorry
+
+/-- 【第4問 (2) 幾何学的第2位の評価と達成可能性】
+n ≥ 2 のとき、最大値未満の任意の配置の領域数は secondSpaceRegionsFormula n 以下であり、かつ達成可能である。 -/
+theorem problem_4_2_geometric (n : ℕ) (hn : 2 ≤ n) :
+    (∀ (H : Fin n → Plane3), DistinctPlanes n H →
+      spaceRegionsCount n H < maxSpaceRegionsFormula n →
+      spaceRegionsCount n H ≤ secondSpaceRegionsFormula n) ∧
+    (∃ (H : Fin n → Plane3), DistinctPlanes n H ∧
+      spaceRegionsCount n H = secondSpaceRegionsFormula n) := by
+  sorry
+
+/-- 【第4問 (3) 代数公式の一致】
+n ≥ 3 のとき、第3位の表現は、n = 4 のとき例外値 12 であり、n ≠ 4 のとき最大値より 2 小さい。 -/
 theorem problem_4_3 (n : ℕ) (hn : 3 ≤ n) :
     thirdSpaceRegionsFormula n = if n = 4 then 12 else maxSpaceRegionsFormula n - 2 := by
   sorry
+
+/-- 【第4問 (3) 幾何学的第3位の評価・例外値および達成可能性】
+n ≥ 3 のとき、第2位未満の任意の配置の領域数は thirdSpaceRegionsFormula n 以下であり、かつ達成可能である。
+特に n = 4 のとき、領域数が 13 (T₄ - 2) となる配置は存在せず、次は 12 となる。 -/
+theorem problem_4_3_geometric (n : ℕ) (hn : 3 ≤ n) :
+    (∀ (H : Fin n → Plane3), DistinctPlanes n H →
+      spaceRegionsCount n H < secondSpaceRegionsFormula n →
+      spaceRegionsCount n H ≤ thirdSpaceRegionsFormula n) ∧
+    (∃ (H : Fin n → Plane3), DistinctPlanes n H ∧
+      spaceRegionsCount n H = thirdSpaceRegionsFormula n) := by
+  sorry
+
 
 /-!
 ## 【第5問】
