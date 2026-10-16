@@ -4431,6 +4431,12 @@ theorem problem_4_2_proof (n : ℕ) (hn : 2 ≤ n) :
   dsimp [secondSpaceRegionsFormula, maxSpaceRegionsFormula]
   omega
 
+/-- 第2位の領域数を達成する相異なる平面配置が存在する。 -/
+lemma exists_planes_secondSpaceRegions (n : ℕ) (hn : 2 ≤ n) :
+    ∃ (H : Fin n → Plane3), DistinctPlanes n H ∧
+      spaceRegionsCount n H = secondSpaceRegionsFormula n := by
+  sorry
+
 /-- 【第4問 (2) の幾何学的解答】
 n ≥ 2 のとき、最大値未満の任意の配置の領域数は secondSpaceRegionsFormula n 以下であり、かつ達成可能である。 -/
 theorem problem_4_2_geometric_proof (n : ℕ) (hn : 2 ≤ n) :
@@ -4439,7 +4445,11 @@ theorem problem_4_2_geometric_proof (n : ℕ) (hn : 2 ≤ n) :
       spaceRegionsCount n H ≤ secondSpaceRegionsFormula n) ∧
     (∃ (H : Fin n → Plane3), DistinctPlanes n H ∧
       spaceRegionsCount n H = secondSpaceRegionsFormula n) := by
-  sorry
+  constructor
+  · intro H _hdist hlt
+    have h_sec := problem_4_2_proof n hn
+    omega
+  · exact exists_planes_secondSpaceRegions n hn
 
 /-- 【第4問 (3) の解答(代数公式との一致)】
 n ≥ 3 のとき、3番目に大きい値は、n = 4 のとき例外値 12 であり、
@@ -4454,6 +4464,18 @@ theorem problem_4_3_proof (n : ℕ) (_hn : 3 ≤ n) :
     simp only [h4, ↓reduceIte]
     omega
 
+/-- 4枚の相異なる平面配置において、領域数が13となる配置は存在しない。 -/
+lemma spaceRegionsCount_four_ne_thirteen (H : Fin 4 → Plane3)
+    (hdist : DistinctPlanes 4 H) :
+    spaceRegionsCount 4 H ≠ 13 := by
+  sorry
+
+/-- 第3位の領域数を達成する相異なる平面配置が存在する。 -/
+lemma exists_planes_thirdSpaceRegions (n : ℕ) (hn : 3 ≤ n) :
+    ∃ (H : Fin n → Plane3), DistinctPlanes n H ∧
+      spaceRegionsCount n H = thirdSpaceRegionsFormula n := by
+  sorry
+
 /-- 【第4問 (3) の幾何学的解答】
 n ≥ 3 のとき、第2位未満の任意の配置の領域数は thirdSpaceRegionsFormula n 以下であり、かつ達成可能である。
 特に n = 4 のとき、領域数が 13 となる配置は存在せず、次は 12 となる。 -/
@@ -4463,6 +4485,18 @@ theorem problem_4_3_geometric_proof (n : ℕ) (hn : 3 ≤ n) :
       spaceRegionsCount n H ≤ thirdSpaceRegionsFormula n) ∧
     (∃ (H : Fin n → Plane3), DistinctPlanes n H ∧
       spaceRegionsCount n H = thirdSpaceRegionsFormula n) := by
-  sorry
+  constructor
+  · intro H hdist hlt
+    by_cases h4 : n = 4
+    · subst h4
+      have h_sec4 : secondSpaceRegionsFormula 4 = 14 := space_regions_n_four.2.1
+      have h_third4 : thirdSpaceRegionsFormula 4 = 12 := space_regions_n_four.2.2
+      have h_ne13 := spaceRegionsCount_four_ne_thirteen H hdist
+      omega
+    · have h_third := problem_4_3_proof n hn
+      have h_sec := problem_4_2_proof n (by omega)
+      simp only [h4, ↓reduceIte] at h_third
+      omega
+  · exact exists_planes_thirdSpaceRegions n hn
 
 end MyLean.Exercises.«science-tokyo».«2019»
