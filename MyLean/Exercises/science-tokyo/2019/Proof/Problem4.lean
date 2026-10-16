@@ -1918,18 +1918,399 @@ lemma lineIntervals_eq_of_general_position (k : ℕ) (L : Fin (k + 1) → Line2)
   rw [realIntervalsCount_eq]
   rw [card_lineIntersectionParams_eq_of_general_position k L hgen]
 
-/-- 一般の位置にある配置において、切断される領域の個数はちょうど $k + 1$ 個である。 -/
+open Classical in
+/-- 交点パラメータに含まれない実数に対応する直線上の点は、
+既存のどの直線の上にも存在しない。 -/
+lemma not_mem_line_of_not_mem_lineIntersectionParams (k : ℕ) (L : Fin (k + 1) → Line2)
+    (hgen : GeneralPositionLines (k + 1) L)
+    {t : ℝ} (ht : t ∉ lineIntersectionParams k L) (i : Fin k) :
+    linePt (L (Fin.last k)) t ∉ (L (Fin.castSucc i)).toSet := by
+  intro hp
+  apply ht
+  dsimp [lineIntersectionParams]
+  rw [Finset.mem_image]
+  use i
+  have h_not_par : ¬ parallelLines (L (Fin.castSucc i)) (L (Fin.last k)) :=
+    hgen.1 (Fin.castSucc i) (Fin.last k) (ne_of_lt (Fin.castSucc_lt_last i))
+  have h_raw := rawIntersectionParam_eq k L i h_not_par hp
+  have h_inter : hasIntersectionWithLast k L i := h_not_par
+  refine ⟨?_, h_raw⟩
+  dsimp [intersectingIndices]
+  exact Finset.mem_filter.mpr ⟨Finset.mem_univ i, h_inter⟩
+
+open Classical in
+/-- 交点パラメータ集合の元は、既存のある直線との交点に対応する。 -/
+lemma exists_line_of_mem_lineIntersectionParams (k : ℕ) (L : Fin (k + 1) → Line2)
+    {s : ℝ} (hs : s ∈ lineIntersectionParams k L) :
+    ∃ i : Fin k, linePt (L (Fin.last k)) s ∈ (L (Fin.castSucc i)).toSet := by
+  dsimp [lineIntersectionParams] at hs
+  obtain ⟨i, hi, rfl⟩ := Finset.mem_image.mp hs
+  dsimp [rawIntersectionParam]
+  split_ifs with hex
+  · exact ⟨i, Classical.choose_spec hex⟩
+  · have hi_inter : hasIntersectionWithLast k L i := (Finset.mem_filter.mp hi).2
+    have hex_true := exists_linePt_mem_of_not_parallel
+      (L (Fin.castSucc i)) (L (Fin.last k)) hi_inter
+    exact (hex hex_true).elim
+
+open Classical in
+/-- 有限集合の左側にある要素数が真に増加するとき、
+その2点の間には有限集合の元が少なくとも1つ存在する。 -/
+lemma exists_between_of_countLt_lt {S : Finset ℝ} {t₁ t₂ : ℝ}
+    (ht₁ : t₁ ∉ S) (ht₁₂ : t₁ < t₂) (hcount : countLt S t₁ < countLt S t₂) :
+    ∃ s ∈ S, t₁ < s ∧ s < t₂ := by
+  dsimp [countLt] at hcount
+  have h_sub : S.filter (· < t₁) ⊂ S.filter (· < t₂) := by
+    refine Finset.ssubset_iff_subset_ne.mpr ⟨?_, ?_⟩
+    · intro x hx
+      simp only [Finset.mem_filter] at hx ⊢
+      exact ⟨hx.1, lt_trans hx.2 ht₁₂⟩
+    · intro h_eq
+      rw [h_eq] at hcount
+      exact lt_irrefl _ hcount
+  obtain ⟨s, hs⟩ := Finset.exists_of_ssubset h_sub
+  simp only [Finset.mem_filter, not_and] at hs
+  have hsS : s ∈ S := hs.1.1
+  have hs_lt2 : s < t₂ := hs.1.2
+  have hs_ge1 : t₁ ≤ s := not_lt.mp (hs.2 hsS)
+  have hs_ne1 : t₁ ≠ s := fun h => ht₁ (h ▸ hsS)
+  have hs_lt1 : t₁ < s := lt_of_le_of_ne hs_ge1 hs_ne1
+  exact ⟨s, hsS, hs_lt1, hs_lt2⟩
+
+/-- 開区間内の点 $s \in (t_1, t_2)$ は、$t_1$ と $t_2$ の真の凸結合として表される。 -/
+lemma exists_affine_comb_of_lt {t₁ t₂ s : ℝ} (h1 : t₁ < s) (h2 : s < t₂) :
+    ∃ a b : ℝ, 0 < a ∧ 0 < b ∧ a + b = 1 ∧ a * t₁ + b * t₂ = s := by
+  let b := (s - t₁) / (t₂ - t₁)
+  let a := 1 - b
+  have h_diff_pos : 0 < t₂ - t₁ := by linarith
+  have hb_pos : 0 < b := div_pos (by linarith) h_diff_pos
+  have hb_lt1 : b < 1 := (div_lt_one h_diff_pos).mpr (by linarith)
+  have ha_pos : 0 < a := by dsimp [a]; linarith
+  have hab : a + b = 1 := by dsimp [a]; ring
+  have h_comb : a * t₁ + b * t₂ = s := by
+    dsimp [a, b]
+    have : (1 - (s - t₁) / (t₂ - t₁)) * t₁ + ((s - t₁) / (t₂ - t₁)) * t₂ =
+        t₁ + ((s - t₁) / (t₂ - t₁)) * (t₂ - t₁) := by ring
+    rw [this, div_mul_cancel₀ _ (ne_of_gt h_diff_pos)]
+    ring
+  exact ⟨a, b, ha_pos, hb_pos, hab, h_comb⟩
+
+open Classical in
+/-- 一般の位置にある配置において、切断される領域の個数はちょうど $k + 1$ 個である。
+上界(実数区間数以下)と、各区間から切断領域への単射構成による下界を組み合わせて証明される。 -/
 lemma splitRegionsCount_eq_of_general_position (k : ℕ) (L : Fin (k + 1) → Line2)
     (hgen : GeneralPositionLines (k + 1) L) :
     splitRegionsCount k L = k + 1 := by
-  sorry
+  have h_le : splitRegionsCount k L ≤ k + 1 := by
+    have h1 := splitRegionsCount_le_lineIntervals k L
+    have h2 := lineIntervals_eq_of_general_position k L hgen
+    omega
+  have h_ge : k + 1 ≤ splitRegionsCount k L := by
+    let S := lineIntersectionParams k L
+    have hS_card : S.card = k := card_lineIntersectionParams_eq_of_general_position k L hgen
+    let split_sigs := Finset.filter (fun σ =>
+      isSplitByLine (convexPlaneRegion k (L ∘ Fin.castSucc) σ) (L (Fin.last k))) Finset.univ
+    have hj_pt : ∀ j : Fin (k + 1), ∃ t : ℝ, t ∉ S ∧ countLt S t = j.val := by
+      intro j
+      have hj_fin : j.val < S.card + 1 := by rw [hS_card]; exact j.isLt
+      exact exists_point_countLt_eq S ⟨j.val, hj_fin⟩
+    choose t ht using hj_pt
+    have hp_not : ∀ j : Fin (k + 1), ∀ i : Fin k,
+        linePt (L (Fin.last k)) (t j) ∉ (L (Fin.castSucc i)).toSet := by
+      intro j i
+      exact not_mem_line_of_not_mem_lineIntersectionParams k L hgen (ht j).1 i
+    let p : Fin (k + 1) → Plane2 := fun j => linePt (L (Fin.last k)) (t j)
+    let σ : Fin (k + 1) → SignVector2 k := fun j =>
+      pointSignVector k (L ∘ Fin.castSucc) ⟨p j, hp_not j⟩
+    have hσ_mem : ∀ j : Fin (k + 1), σ j ∈ split_sigs := by
+      intro j
+      dsimp [split_sigs]
+      rw [Finset.mem_filter]
+      refine ⟨Finset.mem_univ _, ?_⟩
+      exact ⟨p j, mem_convexPlaneRegion_pointSignVector k (L ∘ Fin.castSucc) ⟨p j, hp_not j⟩,
+        linePt_mem_line _ _⟩
+    let ψ : Fin (k + 1) → split_sigs := fun j => ⟨σ j, hσ_mem j⟩
+    have hψ_inj : Function.Injective ψ := by
+      intro j1 j2 h_eq
+      have h_sig_eq : σ j1 = σ j2 := congr_arg Subtype.val h_eq
+      by_contra h_ne
+      have hj_ne : j1.val ≠ j2.val := fun h => h_ne (Fin.ext h)
+      have h_contra : ∀ {ja jb : Fin (k + 1)}, ja.val < jb.val → σ ja = σ jb → False := by
+        intro ja jb hj_lt h_eq_ab
+        have h_count_lt : countLt S (t ja) < countLt S (t jb) := by
+          rw [(ht ja).2, (ht jb).2]
+          exact hj_lt
+        have ht_lt : t ja < t jb := by
+          by_contra hle
+          have : t jb ≤ t ja := not_lt.mp hle
+          have h_sub_filter : S.filter (· < t jb) ⊆ S.filter (· < t ja) := by
+            intro x hx
+            simp only [Finset.mem_filter] at hx ⊢
+            exact ⟨hx.1, lt_of_lt_of_le hx.2 this⟩
+          have h_count_le : countLt S (t jb) ≤ countLt S (t ja) := by
+            dsimp [countLt]
+            exact Finset.card_le_card h_sub_filter
+          omega
+        obtain ⟨s, hsS, hs1, hs2⟩ := exists_between_of_countLt_lt (ht ja).1 ht_lt h_count_lt
+        obtain ⟨i, hp_star_line⟩ := exists_line_of_mem_lineIntersectionParams k L hsS
+        obtain ⟨a, b, ha, hb, hab, hab_s⟩ := exists_affine_comb_of_lt hs1 hs2
+        let p_star := linePt (L (Fin.last k)) s
+        have hp_star_comb : p_star = a • p ja + b • p jb := by
+          dsimp [p_star, p]
+          have h_comb_s : s = (1 - b) * t ja + b * t jb := by
+            have : a = 1 - b := by linarith
+            rw [← this, hab_s]
+          rw [h_comb_s, linePt_affine_comb]
+          have : 1 - b = a := by linarith
+          rw [this]
+        have hp1 : p ja ∈ convexPlaneRegion k (L ∘ Fin.castSucc) (σ ja) :=
+          mem_convexPlaneRegion_pointSignVector k (L ∘ Fin.castSucc) ⟨p ja, hp_not ja⟩
+        have hp2 : p jb ∈ convexPlaneRegion k (L ∘ Fin.castSucc) (σ ja) := by
+          rw [h_eq_ab]
+          exact mem_convexPlaneRegion_pointSignVector k (L ∘ Fin.castSucc) ⟨p jb, hp_not jb⟩
+        have hp_star_reg : p_star ∈ convexPlaneRegion k (L ∘ Fin.castSucc) (σ ja) := by
+          rw [hp_star_comb]
+          exact convex_combination_mem_region (L ∘ Fin.castSucc) (σ ja) hp1 hp2 ha hb hab
+        have hp_star_not :=
+          not_mem_line_of_mem_convexPlaneRegion (L ∘ Fin.castSucc) (σ ja) hp_star_reg i
+        exact hp_star_not hp_star_line
+      rcases lt_or_gt_of_ne hj_ne with hj_lt | hj_gt
+      · exact h_contra hj_lt h_sig_eq
+      · exact h_contra hj_gt h_sig_eq.symm
+    have h_card_le := Fintype.card_le_of_injective ψ hψ_inj
+    rw [Fintype.card_fin, Fintype.card_coe] at h_card_le
+    change k + 1 ≤ splitRegionsCount k L
+    exact h_card_le
+  omega
 
+open Classical in
+/-- 直線により切断される凸領域は、直線の正の側と負の側の両方に非空な領域を生じる。
+法線ベクトル方向に十分小さく点を動かすことで両側の内点を構成する。 -/
+lemma split_region_both_sides_nonempty (k : ℕ) (L : Fin (k + 1) → Line2)
+    (σ : SignVector2 k)
+    (hsplit : isSplitByLine (convexPlaneRegion k (L ∘ Fin.castSucc) σ) (L (Fin.last k))) :
+    (convexPlaneRegion (k + 1) L (Fin.snoc σ true)).Nonempty ∧
+    (convexPlaneRegion (k + 1) L (Fin.snoc σ false)).Nonempty := by
+  obtain ⟨p, hp_reg, hp_line⟩ := hsplit
+  dsimp [Line2.toSet] at hp_line
+  let u := (L (Fin.last k)).normVec
+  have hu_pos : 0 < @inner ℝ Plane2 _ u u :=
+    real_inner_self_pos.2 (L (Fin.last k)).normVec_ne_zero
+  let δ : Fin k → ℝ := fun i =>
+    if σ i then @inner ℝ Plane2 _ (L (Fin.castSucc i)).normVec p - (L (Fin.castSucc i)).offset
+    else (L (Fin.castSucc i)).offset - @inner ℝ Plane2 _ (L (Fin.castSucc i)).normVec p
+  have hδ_pos : ∀ i, 0 < δ i := by
+    intro i
+    have hp_i := hp_reg i
+    dsimp at hp_i
+    dsimp [δ]
+    split_ifs at hp_i ⊢ with hσ
+    · linarith
+    · linarith
+  let g : Option (Fin k) → ℝ := fun opt =>
+    match opt with
+    | none => 1
+    | some i =>
+      let dot := @inner ℝ Plane2 _ (L (Fin.castSucc i)).normVec u
+      if dot = 0 then 1 else δ i / (2 * |dot|)
+  have hg_pos : ∀ opt, 0 < g opt := by
+    intro opt
+    cases opt with
+    | none => exact Real.zero_lt_one
+    | some i =>
+      dsimp [g]
+      split_ifs with hdot
+      · exact Real.zero_lt_one
+      · refine div_pos (hδ_pos i) ?_
+        have : 0 < |@inner ℝ Plane2 _ (L (Fin.castSucc i)).normVec u| :=
+          abs_pos.mpr hdot
+        linarith
+  have h_univ_nonempty : (Finset.univ : Finset (Option (Fin k))).Nonempty :=
+    ⟨none, Finset.mem_univ none⟩
+  obtain ⟨opt_min, -, h_min⟩ := Finset.exists_min_image Finset.univ g h_univ_nonempty
+  let ε := g opt_min
+  have hε_pos : 0 < ε := hg_pos opt_min
+  have hε_le : ∀ i : Fin k, ε ≤ g (some i) := fun i => h_min (some i) (Finset.mem_univ _)
+  let p_plus := p + ε • u
+  let p_minus := p - ε • u
+  have hp_plus_last : (L (Fin.last k)).offset < @inner ℝ Plane2 _ u p_plus := by
+    dsimp [p_plus]
+    rw [inner_add_right, inner_smul_right]
+    have : 0 < ε * @inner ℝ Plane2 _ u u := mul_pos hε_pos hu_pos
+    linarith
+  have hp_minus_last : @inner ℝ Plane2 _ u p_minus < (L (Fin.last k)).offset := by
+    dsimp [p_minus]
+    rw [inner_sub_right, inner_smul_right]
+    have : 0 < ε * @inner ℝ Plane2 _ u u := mul_pos hε_pos hu_pos
+    linarith
+  have hp_plus_reg : p_plus ∈ convexPlaneRegion k (L ∘ Fin.castSucc) σ := by
+    dsimp [convexPlaneRegion]
+    intro i
+    have hp_i := hp_reg i
+    dsimp at hp_i
+    have h_le_i := hε_le i
+    dsimp [p_plus]
+    rw [inner_add_right, inner_smul_right]
+    let vi := (L (Fin.castSucc i)).normVec
+    have h_vi : (L (Fin.castSucc i)).normVec = vi := rfl
+    rw [h_vi]
+    rw [h_vi] at hp_i
+    let dot := @inner ℝ Plane2 _ vi u
+    have h_dot : @inner ℝ Plane2 _ vi u = dot := rfl
+    rw [h_dot]
+    by_cases hdot : dot = 0
+    · dsimp [g] at h_le_i
+      rw [ite_eq_left hdot] at h_le_i
+      rw [hdot, mul_zero, add_zero]
+      split_ifs at hp_i ⊢ with hσ <;> exact hp_i
+    · dsimp [g] at h_le_i
+      rw [ite_eq_right hdot] at h_le_i
+      have h_bound : ε * |dot| ≤ δ i / 2 := by
+        have h_mul : ε * (2 * |dot|) ≤ (δ i / (2 * |dot|)) * (2 * |dot|) :=
+          mul_le_mul_of_nonneg_right h_le_i (by positivity)
+        rw [div_mul_cancel₀ _ (by positivity)] at h_mul
+        linarith
+      have h_abs_dot : |ε * dot| ≤ δ i / 2 := by
+        rw [abs_mul, abs_of_pos hε_pos]
+        exact h_bound
+      have h_dot_ge : - (δ i / 2) ≤ ε * dot := by
+        have := neg_le_of_abs_le h_abs_dot
+        linarith
+      have h_dot_le : ε * dot ≤ δ i / 2 := le_of_abs_le h_abs_dot
+      have hδ_def : δ i = if σ i then @inner ℝ Plane2 _ vi p - (L (Fin.castSucc i)).offset
+                         else (L (Fin.castSucc i)).offset - @inner ℝ Plane2 _ vi p := rfl
+      split_ifs at hp_i ⊢ with hσ
+      · rw [ite_eq_left hσ] at hδ_def
+        linarith
+      · rw [ite_eq_right hσ] at hδ_def
+        linarith
+  have hp_minus_reg : p_minus ∈ convexPlaneRegion k (L ∘ Fin.castSucc) σ := by
+    dsimp [convexPlaneRegion]
+    intro i
+    have hp_i := hp_reg i
+    dsimp at hp_i
+    have h_le_i := hε_le i
+    dsimp [p_minus]
+    rw [inner_sub_right, inner_smul_right]
+    let vi := (L (Fin.castSucc i)).normVec
+    have h_vi : (L (Fin.castSucc i)).normVec = vi := rfl
+    rw [h_vi]
+    rw [h_vi] at hp_i
+    let dot := @inner ℝ Plane2 _ vi u
+    have h_dot : @inner ℝ Plane2 _ vi u = dot := rfl
+    rw [h_dot]
+    by_cases hdot : dot = 0
+    · dsimp [g] at h_le_i
+      rw [ite_eq_left hdot] at h_le_i
+      rw [hdot, mul_zero, sub_zero]
+      split_ifs at hp_i ⊢ with hσ <;> exact hp_i
+    · dsimp [g] at h_le_i
+      rw [ite_eq_right hdot] at h_le_i
+      have h_bound : ε * |dot| ≤ δ i / 2 := by
+        have h_mul : ε * (2 * |dot|) ≤ (δ i / (2 * |dot|)) * (2 * |dot|) :=
+          mul_le_mul_of_nonneg_right h_le_i (by positivity)
+        rw [div_mul_cancel₀ _ (by positivity)] at h_mul
+        linarith
+      have h_abs_dot : |ε * dot| ≤ δ i / 2 := by
+        rw [abs_mul, abs_of_pos hε_pos]
+        exact h_bound
+      have h_dot_ge : - (δ i / 2) ≤ ε * dot := by
+        have := neg_le_of_abs_le h_abs_dot
+        linarith
+      have h_dot_le : ε * dot ≤ δ i / 2 := le_of_abs_le h_abs_dot
+      have hδ_def : δ i = if σ i then @inner ℝ Plane2 _ vi p - (L (Fin.castSucc i)).offset
+                         else (L (Fin.castSucc i)).offset - @inner ℝ Plane2 _ vi p := rfl
+      split_ifs at hp_i ⊢ with hσ
+      · rw [ite_eq_left hσ] at hδ_def
+        linarith
+      · rw [ite_eq_right hσ] at hδ_def
+        linarith
+  constructor
+  · use p_plus
+    rw [mem_convexPlaneRegion_succ]
+    exact ⟨hp_plus_reg, hp_plus_last⟩
+  · use p_minus
+    rw [mem_convexPlaneRegion_succ]
+    exact ⟨hp_minus_reg, hp_minus_last⟩
+
+open Classical in
 /-- 一般の位置にある配置に新しい直線を追加したとき、
-増える領域の個数は切断領域の個数 ($k + 1$) 以上である。 -/
+増える領域の個数は切断領域の個数 ($k + 1$) 以上である。
+ファイバー分解の和において、切断領域が2個以上、非切断領域が1個以上の領域を
+生じることから従う。 -/
 lemma planeRegionsCount_succ_ge_of_general_position (k : ℕ) (L : Fin (k + 1) → Line2)
     (hgen : GeneralPositionLines (k + 1) L) :
     planeRegionsCount k (L ∘ Fin.castSucc) + (k + 1) ≤ planeRegionsCount (k + 1) L := by
-  sorry
+  have h_split_eq : splitRegionsCount k L = k + 1 :=
+    splitRegionsCount_eq_of_general_position k L hgen
+  have h_ge : planeRegionsCount k (L ∘ Fin.castSucc) + splitRegionsCount k L ≤
+      planeRegionsCount (k + 1) L := by
+    rw [planeRegionsCount_eq_card_nonempty_convexPlaneRegion]
+    rw [planeRegionsCount_eq_card_nonempty_convexPlaneRegion]
+    let P_succ := fun τ => (convexPlaneRegion (k + 1) L τ).Nonempty
+    rw [card_filter_succ_eq_sum P_succ]
+    have hA : (∑ σ, if (convexPlaneRegion k (L ∘ Fin.castSucc) σ).Nonempty then 1 else 0) =
+        (Finset.filter
+          (fun σ => (convexPlaneRegion k (L ∘ Fin.castSucc) σ).Nonempty) Finset.univ).card :=
+      sum_ite_eq_card_filter _
+    have hB : (∑ σ, if isSplitByLine (convexPlaneRegion k (L ∘ Fin.castSucc) σ)
+        (L (Fin.last k)) then 1 else 0) = splitRegionsCount k L := by
+      dsimp [splitRegionsCount]
+      exact sum_ite_eq_card_filter _
+    rw [← hA, ← hB, ← Finset.sum_add_distrib]
+    apply Finset.sum_le_sum
+    intro σ _
+    let F_set := Finset.filter (fun b : Bool => P_succ (Fin.snoc σ b)) Finset.univ
+    by_cases hne : (convexPlaneRegion k (L ∘ Fin.castSucc) σ).Nonempty
+    · simp only [hne, ↓reduceIte]
+      by_cases hsp : isSplitByLine (convexPlaneRegion k (L ∘ Fin.castSucc) σ) (L (Fin.last k))
+      · simp only [hsp, ↓reduceIte]
+        have h_both := split_region_both_sides_nonempty k L σ hsp
+        have hT : true ∈ F_set := by
+          simp only [F_set, Finset.mem_filter, Finset.mem_univ, true_and, P_succ]
+          exact h_both.1
+        have hF : false ∈ F_set := by
+          simp only [F_set, Finset.mem_filter, Finset.mem_univ, true_and, P_succ]
+          exact h_both.2
+        have h_pair : {true, false} ⊆ F_set := by
+          intro x hx
+          simp only [Finset.mem_insert, Finset.mem_singleton] at hx
+          rcases hx with rfl | rfl <;> assumption
+        have h_card_two : ({true, false} : Finset Bool).card = 2 := by decide
+        have h_le := Finset.card_le_card h_pair
+        rw [h_card_two] at h_le
+        exact h_le
+      · simp only [hsp, ↓reduceIte, add_zero]
+        obtain ⟨p, hp⟩ := hne
+        have hp_not_line : p ∉ (L (Fin.last k)).toSet := by
+          intro hp_line
+          apply hsp
+          exact ⟨p, hp, hp_line⟩
+        dsimp [Line2.toSet] at hp_not_line
+        rcases lt_or_gt_of_ne hp_not_line with hlt | hgt
+        · have hF : false ∈ F_set := by
+            simp only [F_set, Finset.mem_filter, Finset.mem_univ, true_and, P_succ]
+            use p
+            rw [mem_convexPlaneRegion_succ]
+            exact ⟨hp, hlt⟩
+          have h_pos : 1 ≤ F_set.card := Finset.card_pos.mpr ⟨false, hF⟩
+          exact h_pos
+        · have hT : true ∈ F_set := by
+            simp only [F_set, Finset.mem_filter, Finset.mem_univ, true_and, P_succ]
+            use p
+            rw [mem_convexPlaneRegion_succ]
+            exact ⟨hp, hgt⟩
+          have h_pos : 1 ≤ F_set.card := Finset.card_pos.mpr ⟨true, hT⟩
+          exact h_pos
+    · simp only [hne, ↓reduceIte, zero_add]
+      have hsp_not :
+          ¬ isSplitByLine (convexPlaneRegion k (L ∘ Fin.castSucc) σ) (L (Fin.last k)) := by
+        rintro ⟨p, hp, _⟩
+        exact hne ⟨p, hp⟩
+      simp only [hsp_not, ↓reduceIte]
+      exact Nat.zero_le _
+  rw [h_split_eq] at h_ge
+  exact h_ge
 
 /-- 一般の位置にある配置に新しい直線を追加したとき、
 増える平面領域の個数はちょうど $k + 1$ 個である。
