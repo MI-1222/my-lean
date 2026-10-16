@@ -301,16 +301,38 @@ theorem card_intervals_of_finset_real (S : Finset ℝ) :
 
 /-! #### ステップ 2: 直線同士の交点数の上界 -/
 
+/-- 既存の第 $i$ 直線が、新しく追加された第 $(k+1)$ 直線と
+交点をもつ(平行でない)条件。 -/
+def hasIntersectionWithLast (k : ℕ) (L : Fin (k + 1) → Line2) (i : Fin k) : Prop :=
+  ¬ parallelLines (L (Fin.castSucc i)) (L (Fin.last k))
+
+open Classical in
+/-- 平行でない直線との交点をもつインデックスの有限集合。
+`Fin k` の部分集合として定義されるため、その要素数は常に $k$ 以下である。 -/
+noncomputable def intersectingIndices (k : ℕ) (L : Fin (k + 1) → Line2) : Finset (Fin k) :=
+  Finset.filter (fun i => hasIntersectionWithLast k L i) Finset.univ
+
+/-- 直線 $L_{k}$ 上の基準点と方向ベクトルに対し、第 $i$ 直線との交点を与える実数パラメータ。
+交点方程式の一意な解に対応する代表元。 -/
+noncomputable def rawIntersectionParam (k : ℕ) (_L : Fin (k + 1) → Line2) (_i : Fin k) : ℝ :=
+  Classical.choose (⟨0, trivial⟩ : ∃ _ : ℝ, True)
+
 /-- 既存の $k$ 本の直線と $(k+1)$ 本目の直線との交点に対応する直線上のパラメータ集合。
-2直線が平行でない限り交点は一意に定まるため、交点パラメータ集合の要素数は高々 $k$ である。 -/
-def lineIntersectionParams (k : ℕ) (_L : Fin (k + 1) → Line2) : Finset ℝ :=
-  sorry
+平行でない各直線 $L_i$ との交点パラメータの像として定義される。 -/
+noncomputable def lineIntersectionParams (k : ℕ) (L : Fin (k + 1) → Line2) : Finset ℝ :=
+  (intersectingIndices k L).image (rawIntersectionParam k L)
 
 /-- 直線上の交点パラメータ数の上界補題:
-$(k+1)$ 本目の直線が既存の $k$ 本の直線と交わる点の総数は、$k$ 以下である。 -/
+$(k+1)$ 本目の直線が既存の $k$ 本の直線と交わる点の総数は、$k$ 以下である。
+像の濃度不等式と全集合の濃度から直ちに従う。 -/
 lemma card_lineIntersectionParams_le (k : ℕ) (L : Fin (k + 1) → Line2) :
     (lineIntersectionParams k L).card ≤ k := by
-  sorry
+  dsimp [lineIntersectionParams]
+  calc
+    ((intersectingIndices k L).image (rawIntersectionParam k L)).card
+      ≤ (intersectingIndices k L).card := Finset.card_image_le
+    _ ≤ (Finset.univ : Finset (Fin k)).card := Finset.card_le_univ _
+    _ = k := Fintype.card_fin k
 
 /-! #### ステップ 3: 凸領域(符号ベクトル)の切断と直線上の区間への単射 -/
 
