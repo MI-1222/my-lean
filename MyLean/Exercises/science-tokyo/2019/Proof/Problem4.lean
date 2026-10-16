@@ -811,6 +811,7 @@ def explicitIntersection (t₁ t₂ t₃ : ℝ) : Space3 :=
   (WithLp.equiv 2 (Fin 3 → ℝ)).symm
     ![t₁ * t₂ * t₃, -(t₁ * t₂ + t₂ * t₃ + t₃ * t₁), t₁ + t₂ + t₃]
 
+open Classical in
 /-- 相異なる3つのモーメント平面は、解と係数の関係から定まる唯一の交点を持つ。 -/
 lemma intersection_three_momentPlanes {t₁ t₂ t₃ : ℝ}
     (h12 : t₁ ≠ t₂) (h23 : t₂ ≠ t₃) (h13 : t₁ ≠ t₃) :
@@ -892,6 +893,7 @@ lemma intersection_three_momentPlanes {t₁ t₂ t₃ : ℝ}
     · dsimp [p, explicitIntersection]; ring
     · dsimp [p, explicitIntersection]; ring
 
+open Classical in
 /-- 相異なる4つのモーメント平面の共通部分は空である。
 もし点 $p$ が属せば、3次多項式 $t^3 - z t^2 - y t - x$ が4つの相異なる根を持つことになり矛盾する。 -/
 lemma intersection_four_momentPlanes_empty {t₁ t₂ t₃ t₄ : ℝ}
@@ -976,6 +978,75 @@ theorem exists_general_position_planes (n : ℕ) :
     have h_ne6 : (j.val : ℝ) ≠ (m.val : ℝ) := by exact_mod_cast (Fin.ext_iff.not.mp hjm)
     exact intersection_four_momentPlanes_empty h_ne1 h_ne2 h_ne3 h_ne4 h_ne5 h_ne6
 
+/-- 同一の点集合を定める2つの平面は平行である。
+法線ベクトルの直交補空間の比較により、スカラー倍の存在を導出する。 -/
+lemma parallelPlanes_of_toSet_eq (H₁ H₂ : Plane3) (h_eq : H₁.toSet = H₂.toSet) :
+    parallelPlanes H₁ H₂ := by
+  let u := H₁.normVec
+  let v := H₂.normVec
+  have hu_ne : u ≠ 0 := H₁.normVec_ne_zero
+  have hv_ne : v ≠ 0 := H₂.normVec_ne_zero
+  have hK_ne : @inner ℝ Space3 _ u u ≠ 0 := by
+    intro h
+    exact hu_ne (inner_self_eq_zero.mp h)
+  let K := @inner ℝ Space3 _ u u
+  let w : Space3 := K • v - (@inner ℝ Space3 _ u v) • u
+  have huw : @inner ℝ Space3 _ u w = 0 := by
+    dsimp [w]
+    rw [inner_sub_right, inner_smul_right, inner_smul_right]
+    dsimp [K]
+    ring
+  let x₀ : Space3 := (H₁.offset / K) • u
+  have hx₀_in1 : x₀ ∈ H₁.toSet := by
+    dsimp [Plane3.toSet, x₀]
+    rw [inner_smul_right]
+    have : @inner ℝ Space3 _ u u = K := rfl
+    rw [this, div_mul_cancel₀ H₁.offset hK_ne]
+  let x₁ : Space3 := x₀ + w
+  have hx₁_in1 : x₁ ∈ H₁.toSet := by
+    dsimp [Plane3.toSet, x₁]
+    rw [inner_add_right]
+    have h1 : @inner ℝ Space3 _ u x₀ = H₁.offset := hx₀_in1
+    rw [h1, huw, add_zero]
+  have hx₀_in2 : x₀ ∈ H₂.toSet := by rw [← h_eq]; exact hx₀_in1
+  have hx₁_in2 : x₁ ∈ H₂.toSet := by rw [← h_eq]; exact hx₁_in1
+  have hvw : @inner ℝ Space3 _ v w = 0 := by
+    have h1 : @inner ℝ Space3 _ v x₀ = H₂.offset := hx₀_in2
+    have h2 : @inner ℝ Space3 _ v x₁ = H₂.offset := hx₁_in2
+    have h3 : @inner ℝ Space3 _ v x₁ = @inner ℝ Space3 _ v x₀ + @inner ℝ Space3 _ v w := by
+      dsimp [x₁]; rw [inner_add_right]
+    linarith
+  have hww : @inner ℝ Space3 _ w w = 0 := by
+    have hw_def : w = K • v - (@inner ℝ Space3 _ u v) • u := rfl
+    calc
+      @inner ℝ Space3 _ w w =
+          @inner ℝ Space3 _ (K • v - (@inner ℝ Space3 _ u v) • u) w := by rw [← hw_def]
+      _ = K * @inner ℝ Space3 _ v w - (@inner ℝ Space3 _ u v) * @inner ℝ Space3 _ u w := by
+        rw [inner_sub_left, inner_smul_left, inner_smul_left]
+        simp only [starRingEnd_apply, star_trivial]
+      _ = K * 0 - (@inner ℝ Space3 _ u v) * 0 := by rw [hvw, huw]
+      _ = 0 := by ring
+  have hw_zero : w = 0 := inner_self_eq_zero.mp hww
+  have h_eq_vec : K • v = (@inner ℝ Space3 _ u v) • u := by
+    have : K • v - (@inner ℝ Space3 _ u v) • u = 0 := hw_zero
+    exact sub_eq_zero.mp this
+  have huv_ne : @inner ℝ Space3 _ u v ≠ 0 := by
+    intro h_zero
+    rw [h_zero, zero_smul] at h_eq_vec
+    have : v = 0 := smul_eq_zero.mp h_eq_vec |>.resolve_left hK_ne
+    exact hv_ne this
+  use K / (@inner ℝ Space3 _ u v)
+  have h_u_eq : u = (K / (@inner ℝ Space3 _ u v)) • v := by
+    calc
+      u = (1 : ℝ) • u := by rw [one_smul]
+      _ = ((@inner ℝ Space3 _ u v)⁻¹ * (@inner ℝ Space3 _ u v)) • u := by
+        rw [inv_mul_cancel₀ huv_ne]
+      _ = (@inner ℝ Space3 _ u v)⁻¹ • ((@inner ℝ Space3 _ u v) • u) := by rw [mul_smul]
+      _ = (@inner ℝ Space3 _ u v)⁻¹ • (K • v) := by rw [← h_eq_vec]
+      _ = ((@inner ℝ Space3 _ u v)⁻¹ * K) • v := by rw [mul_smul]
+      _ = (K / (@inner ℝ Space3 _ u v)) • v := by rw [div_eq_inv_mul, mul_comm]
+  exact h_u_eq
+
 /-- 一般の位置にある平面配置は、相異なる平面からなる。 -/
 lemma distinctPlanes_of_general_position (n : ℕ) (H : Fin n → Plane3)
     (hgen : GeneralPositionPlanes n H) :
@@ -984,7 +1055,7 @@ lemma distinctPlanes_of_general_position (n : ℕ) (H : Fin n → Plane3)
   by_contra hij
   have h_not_parallel := hgen.1 i j hij
   apply h_not_parallel
-  sorry
+  exact parallelPlanes_of_toSet_eq (H i) (H j) h_eq
 
 /-! ### 本問の主定理 -/
 
