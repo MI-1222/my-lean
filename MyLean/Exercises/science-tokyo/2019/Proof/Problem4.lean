@@ -1,5 +1,7 @@
+import Mathlib.Data.Finset.Sort
 import Mathlib.Data.Nat.Choose.Basic
 import Mathlib.Tactic.Ring
+import Mathlib.Topology.Order.Real
 import MyLean.Common
 import MyLean.Exercises.«science-tokyo».«2019».Statement
 
@@ -173,9 +175,70 @@ lemma maxPlaneRegions_succ_step (k : ℕ) :
   have hk1 : k.choose 1 = k := Nat.choose_one_right k
   omega
 
+/-! ### 直線配置の漸化不等式に関する1次元帰着と中間補題 -/
+
+/-! #### ステップ 1: 1次元実数直線の有限点分割補題 -/
+
+/-- 実数直線上の有限点集合 S による補集合 ℝ \ S の開区間(連結成分)の個数。
+$m$ 個の相異なる点によって、実数直線は高々 $m + 1$ 個の互いに素な開区間に分割される。 -/
+noncomputable def realIntervalsCount (S : Finset ℝ) : ℕ :=
+  Nat.card (ConnectedComponents ({x : ℝ | x ∉ S}))
+
+/-- 実数直線の有限点分割に関する上界補題:
+有限点集合 $S$ による補集合の開区間(凸連結成分)の個数は card S + 1 以下である。
+昇順リスト (-∞, x₀), (x₀, x₁), ..., (x_{m-1}, ∞) の $m + 1$ 個の区間分解に対応する。 -/
+lemma card_intervals_of_finset_real (S : Finset ℝ) :
+    realIntervalsCount S ≤ S.card + 1 := by
+  sorry
+
+/-! #### ステップ 2: 直線同士の交点数の上界 -/
+
+/-- 既存の $k$ 本の直線と $(k+1)$ 本目の直線との交点に対応する直線上のパラメータ集合。
+2直線が平行でない限り交点は一意に定まるため、交点パラメータ集合の要素数は高々 $k$ である。 -/
+def lineIntersectionParams (k : ℕ) (_L : Fin (k + 1) → Line2) : Finset ℝ :=
+  sorry
+
+/-- 直線上の交点パラメータ数の上界補題:
+$(k+1)$ 本目の直線が既存の $k$ 本の直線と交わる点の総数は、$k$ 以下である。 -/
+lemma card_lineIntersectionParams_le (k : ℕ) (L : Fin (k + 1) → Line2) :
+    (lineIntersectionParams k L).card ≤ k := by
+  sorry
+
+/-! #### ステップ 3: 凸領域(符号ベクトル)の切断と直線上の区間への単射 -/
+
+/-- 直線群によって定まる開半空間の符号写像。各直線に対し正負のどちら側にあるかを表す。 -/
+def SignVector2 (k : ℕ) := Fin k → Bool
+
+/-- 符号写像 σ が定める平面上の開凸多角形領域。 -/
+def convexPlaneRegion (k : ℕ) (L : Fin k → Line2) (σ : SignVector2 k) : Set Plane2 :=
+  {x : Plane2 | ∀ i : Fin k,
+    if σ i then (L i).offset < @inner ℝ Plane2 _ (L i).normVec x
+    else @inner ℝ Plane2 _ (L i).normVec x < (L i).offset}
+
+/-- 既存の凸領域 $R$ が新しい直線によって2つに分割される条件。
+領域の内部を直線が横切ることと同値である。 -/
+def isSplitByLine (s : Set Plane2) (line : Line2) : Prop :=
+  (s ∩ line.toSet).Nonempty
+
+/-- 切断と交差の対応補題:
+既存の凸領域が新しい直線によって分割されることと、直線との交わりが非空であることは同値である。
+凸開集合の中間値の定理から従う。 -/
+lemma split_region_intersects_line (k : ℕ) (L : Fin (k + 1) → Line2) (σ : SignVector2 k)
+    (hsplit : isSplitByLine (convexPlaneRegion k (L ∘ Fin.castSucc) σ) (L (Fin.last k))) :
+    (convexPlaneRegion k (L ∘ Fin.castSucc) σ ∩ (L (Fin.last k)).toSet).Nonempty := by
+  exact hsplit
+
+/-- 異なる凸領域から得られる直線上の交差区間は互いに素である。 -/
+lemma disjoint_intersections_on_line (k : ℕ) (L : Fin (k + 1) → Line2)
+    (σ₁ σ₂ : SignVector2 k) (hne : σ₁ ≠ σ₂) :
+    Disjoint (convexPlaneRegion k (L ∘ Fin.castSucc) σ₁ ∩ (L (Fin.last k)).toSet)
+             (convexPlaneRegion k (L ∘ Fin.castSucc) σ₂ ∩ (L (Fin.last k)).toSet) := by
+  sorry
+
 /-- 2次元平面における直線追加の幾何学的漸化不等式:
 $(k+1)$ 本目の直線を追加したとき、既存の $k$ 本の直線との交点で高々 $k+1$ 個の線分・半直線に分かれ、
-平面領域数の増加量は高々 $k+1$ である。 -/
+平面領域数の増加量は高々 $k+1$ である。
+証明は直線上の有限点集合による区間分割への単射に帰着される。 -/
 lemma planeRegionsCount_succ_le (k : ℕ) (L : Fin (k + 1) → Line2) :
     planeRegionsCount (k + 1) L ≤ planeRegionsCount k (L ∘ Fin.castSucc) + (k + 1) := by
   sorry
