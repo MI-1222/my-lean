@@ -2,8 +2,10 @@ import Mathlib.Data.Finset.Sort
 import Mathlib.Data.Nat.Choose.Basic
 import Mathlib.Tactic.Ring
 import Mathlib.Topology.Order.Real
+import Mathlib.Topology.Connected.Basic
 import Mathlib.Topology.Connected.Clopen
 import Mathlib.Topology.Order.IntermediateValue
+import Mathlib.SetTheory.Cardinal.Finite
 import MyLean.Common
 import MyLean.Exercises.«science-tokyo».«2019».Statement
 
@@ -349,10 +351,29 @@ lemma planeRegionsCount_succ_le (k : ℕ) (L : Fin (k + 1) → Line2) :
     planeRegionsCount (k + 1) L ≤ planeRegionsCount k (L ∘ Fin.castSucc) + (k + 1) := by
   sorry
 
+/-! #### 補集合が全空間となる場合の連結成分数補題 -/
+
+/-- 連結空間αにおいて、全空間 `Set.univ` の連結成分数は1である。
+部分空間 `Set.univ` は連結であり、商集合 `ConnectedComponents` が単元集合となる。 -/
+lemma nat_card_connectedComponents_univ {α : Type*} [TopologicalSpace α] [ConnectedSpace α]
+    [Inhabited α] :
+    Nat.card (ConnectedComponents (Set.univ : Set α)) = 1 := by
+  have : ConnectedSpace (Set.univ : Set α) := Subtype.connectedSpace isConnected_univ
+  have : Inhabited (Set.univ : Set α) := ⟨⟨default, mem_univ _⟩⟩
+  have : Unique (ConnectedComponents (Set.univ : Set α)) := Unique.mk' _
+  exact Nat.card_unique
+
 /-- 直線が0本のとき、補集合は平面全体であり領域数は1である。 -/
 lemma planeRegionsCount_zero (L : Fin 0 → Line2) :
     planeRegionsCount 0 L = 1 := by
-  sorry
+  dsimp [planeRegionsCount]
+  have h_univ : {x : Plane2 | ∀ i : Fin 0, x ∉ (L i).toSet} = Set.univ := by
+    ext x
+    simp
+  change Nat.card (ConnectedComponents
+    ({x : Plane2 | ∀ i : Fin 0, x ∉ (L i).toSet} : Set Plane2)) = 1
+  rw [h_univ]
+  exact nat_card_connectedComponents_univ
 
 /-- 2次元直線配置に対する幾何学的上界補題:
 任意の $k$ 本の直線配置による補集合の連結成分数が
@@ -434,7 +455,14 @@ theorem spaceRegionsCount_eq_max_of_general_position (n : ℕ) (H : Fin n → Pl
 /-- 平面が0枚のとき、補集合は全空間であり領域数は1である。 -/
 lemma spaceRegionsCount_zero (H : Fin 0 → Plane3) :
     spaceRegionsCount 0 H = 1 := by
-  sorry
+  dsimp [spaceRegionsCount]
+  have h_univ : {x : Space3 | ∀ i : Fin 0, x ∉ (H i).toSet} = Set.univ := by
+    ext x
+    simp
+  change Nat.card (ConnectedComponents
+    ({x : Space3 | ∀ i : Fin 0, x ∉ (H i).toSet} : Set Space3)) = 1
+  rw [h_univ]
+  exact nat_card_connectedComponents_univ
 
 /-- 3次元空間における幾何学的領域数の最大値上界定理:
 任意の $n$ 枚の平面配置 $H$ による空間領域数 $T(H)$ は、代数公式 $T_{\max}(n)$ 以下である。
