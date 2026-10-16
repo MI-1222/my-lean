@@ -11,6 +11,7 @@ import Mathlib.LinearAlgebra.Vandermonde
 import Mathlib.Tactic.ComputeDegree
 import Mathlib.Data.Fintype.Pi
 import Mathlib.Algebra.Order.BigOperators.Group.Finset
+import Mathlib.Analysis.InnerProductSpace.Basic
 import MyLean.Common
 import MyLean.Exercises.«science-tokyo».«2019».Statement
 
@@ -852,6 +853,340 @@ lemma intersection_disjoint_intersectionPoints (k : ℕ) (L : Fin (k + 1) → Li
     dsimp at h_bound
     linarith
 
+/-- 凸開領域に属する点は、配置内のどの直線にも属さない。 -/
+lemma not_mem_line_of_mem_convexPlaneRegion {k : ℕ} (L : Fin k → Line2) (σ : SignVector2 k)
+    {p : Plane2} (hp : p ∈ convexPlaneRegion k L σ) (i : Fin k) :
+    p ∉ (L i).toSet := by
+  have h := hp i
+  dsimp [Line2.toSet]
+  split_ifs at h with hσ
+  · linarith
+  · linarith
+
+open Classical in
+/-- 直線上の点が交点パラメータ集合に属さないことの判定。
+凸領域に属する直線上の点のパラメータは、他の直線との交点にはなり得ない。 -/
+lemma not_mem_lineIntersectionParams_of_mem_region (k : ℕ) (L : Fin (k + 1) → Line2)
+    (σ : SignVector2 k) {t : ℝ}
+    (hp : linePt (L (Fin.last k)) t ∈ convexPlaneRegion k (L ∘ Fin.castSucc) σ) :
+    t ∉ lineIntersectionParams k L := by
+  intro ht
+  dsimp [lineIntersectionParams] at ht
+  obtain ⟨i, hi, rfl⟩ := Finset.mem_image.mp ht
+  dsimp [rawIntersectionParam] at hp
+  split_ifs at hp with hex
+  · have h_mem := Classical.choose_spec hex
+    have h_not := not_mem_line_of_mem_convexPlaneRegion (L ∘ Fin.castSucc) σ hp i
+    exact h_not h_mem
+  · have hi_inter : hasIntersectionWithLast k L i := (Finset.mem_filter.mp hi).2
+    have hex_true := exists_linePt_mem_of_not_parallel
+      (L (Fin.castSucc i)) (L (Fin.last k)) hi_inter
+    exact hex hex_true
+
+/-- 90度回転ベクトルのノルム自乗の一致。 -/
+lemma inner_rot90_rot90 (u : Plane2) :
+    @inner ℝ Plane2 _ (rot90 u) (rot90 u) = @inner ℝ Plane2 _ u u := by
+  have h1 := PiLp.inner_apply (𝕜 := ℝ) (x := rot90 u) (y := rot90 u)
+  have h2 := PiLp.inner_apply (𝕜 := ℝ) (x := u) (y := u)
+  rw [h1, h2, Fin.sum_univ_two, Fin.sum_univ_two]
+  simp only [Real.inner_apply]
+  change (- u 1) * (- u 1) + (u 0) * (u 0) = u 0 * u 0 + u 1 * u 1
+  ring
+
+/-- 直交基底 $(u, \rot90 u)$ との内積がともに0ならばベクトルは0である。 -/
+lemma eq_zero_of_inner_u_zero_of_inner_rot90_zero (u v : Plane2) (hu : u ≠ 0)
+    (h1 : @inner ℝ Plane2 _ u v = 0) (h2 : @inner ℝ Plane2 _ (rot90 u) v = 0) :
+    v = 0 := by
+  have hu_sq : u 0 ^ 2 + u 1 ^ 2 ≠ 0 := by
+    intro h0
+    apply hu
+    ext i; fin_cases i
+    · have : u 0 = 0 := by nlinarith
+      exact this
+    · have : u 1 = 0 := by nlinarith
+      exact this
+  have h_inner1 := PiLp.inner_apply (𝕜 := ℝ) (x := u) (y := v)
+  have h_inner2 := PiLp.inner_apply (𝕜 := ℝ) (x := rot90 u) (y := v)
+  rw [h_inner1, Fin.sum_univ_two] at h1
+  rw [h_inner2, Fin.sum_univ_two] at h2
+  simp only [Real.inner_apply] at h1 h2
+  change u 0 * v 0 + u 1 * v 1 = 0 at h1
+  change (- u 1) * v 0 + u 0 * v 1 = 0 at h2
+  ext i
+  fin_cases i
+  · have h_zero1 : (u 0 ^ 2 + u 1 ^ 2) * v 0 = 0 := by
+      calc
+        (u 0 ^ 2 + u 1 ^ 2) * v 0 =
+          u 0 * (u 0 * v 0 + u 1 * v 1) - u 1 * ((- u 1) * v 0 + u 0 * v 1) := by ring
+        _ = u 0 * 0 - u 1 * 0 := by rw [h1, h2]
+        _ = 0 := by ring
+    have : v 0 = 0 := (mul_eq_zero.mp h_zero1).resolve_left hu_sq
+    simp [this]
+  · have h_zero2 : (u 0 ^ 2 + u 1 ^ 2) * v 1 = 0 := by
+      calc
+        (u 0 ^ 2 + u 1 ^ 2) * v 1 =
+          u 1 * (u 0 * v 0 + u 1 * v 1) + u 0 * ((- u 1) * v 0 + u 0 * v 1) := by ring
+        _ = u 1 * 0 + u 0 * 0 := by rw [h1, h2]
+        _ = 0 := by ring
+    have : v 1 = 0 := (mul_eq_zero.mp h_zero2).resolve_left hu_sq
+    simp [this]
+
+/-- 直線上の任意の点はパラメータ $t$ により一意に表される。 -/
+lemma exists_t_linePt_eq (L : Line2) {p : Plane2} (hp : p ∈ L.toSet) :
+    ∃ t : ℝ, linePt L t = p := by
+  let u := L.normVec
+  let sq := @inner ℝ Plane2 _ u u
+  have hu_sq : sq ≠ 0 := by
+    dsimp [sq]
+    intro h0
+    apply L.normVec_ne_zero
+    exact inner_self_eq_zero.mp h0
+  let t := (@inner ℝ Plane2 _ (rot90 u) p) / sq
+  use t
+  have hp_offset : @inner ℝ Plane2 _ u p = L.offset := hp
+  have h_sub1 : @inner ℝ Plane2 _ u (p - linePt L t) = 0 := by
+    rw [inner_sub_right]
+    have : @inner ℝ Plane2 _ u (linePt L t) = L.offset := linePt_mem_line L t
+    rw [hp_offset, this, sub_self]
+  have h_sub2 : @inner ℝ Plane2 _ (rot90 u) (p - linePt L t) = 0 := by
+    rw [inner_sub_right]
+    dsimp [linePt, t]
+    rw [inner_add_right, inner_smul_right, inner_smul_right]
+    have h_rot_u : @inner ℝ Plane2 _ (rot90 u) u = 0 := by
+      have := inner_rot90_self u
+      rw [real_inner_comm] at this
+      exact this
+    rw [h_rot_u, mul_zero, zero_add]
+    rw [inner_rot90_rot90]
+    have : (@inner ℝ Plane2 _ (rot90 u) p / sq) * sq = @inner ℝ Plane2 _ (rot90 u) p :=
+      div_mul_cancel₀ _ hu_sq
+    rw [this, sub_self]
+  have h_zero := eq_zero_of_inner_u_zero_of_inner_rot90_zero u (p - linePt L t)
+    L.normVec_ne_zero h_sub1 h_sub2
+  exact (sub_eq_zero.mp h_zero).symm
+
+/-- 直線上の2点で符号が異なれば、2直線は非平行である。 -/
+lemma not_parallel_of_sign_ne (k : ℕ) (L : Fin (k + 1) → Line2)
+    {t₁ t₂ : ℝ} (_ht12 : t₁ ≠ t₂) (i : Fin k)
+    (h_sign1 : (L (Fin.castSucc i)).offset <
+      @inner ℝ Plane2 _ (L (Fin.castSucc i)).normVec (linePt (L (Fin.last k)) t₁))
+    (h_sign2 : @inner ℝ Plane2 _ (L (Fin.castSucc i)).normVec (linePt (L (Fin.last k)) t₂) <
+      (L (Fin.castSucc i)).offset) :
+    ¬ parallelLines (L (Fin.castSucc i)) (L (Fin.last k)) := by
+  intro h_par
+  obtain ⟨c, hc⟩ := h_par
+  have h_f : ∀ t, @inner ℝ Plane2 _ (L (Fin.castSucc i)).normVec (linePt (L (Fin.last k)) t) =
+      c * (L (Fin.last k)).offset := by
+    intro t
+    rw [hc, inner_smul_left]
+    have := linePt_mem_line (L (Fin.last k)) t
+    dsimp [Line2.toSet] at this
+    rw [this]
+    rfl
+  have h_eq : @inner ℝ Plane2 _ (L (Fin.castSucc i)).normVec (linePt (L (Fin.last k)) t₁) =
+      @inner ℝ Plane2 _ (L (Fin.castSucc i)).normVec (linePt (L (Fin.last k)) t₂) := by
+    rw [h_f t₁, h_f t₂]
+  linarith
+
+/-- 直線パラメータ写像のアフィン結合保存性。 -/
+lemma linePt_affine_comb (L : Line2) (u t₁ t₂ : ℝ) :
+    linePt L ((1 - u) * t₁ + u * t₂) = (1 - u) • linePt L t₁ + u • linePt L t₂ := by
+  dsimp [linePt]
+  have h_add : (1 - u) • ((L.offset / @inner ℝ Plane2 _ L.normVec L.normVec) • L.normVec) +
+      u • ((L.offset / @inner ℝ Plane2 _ L.normVec L.normVec) • L.normVec) =
+      (L.offset / @inner ℝ Plane2 _ L.normVec L.normVec) • L.normVec := by
+    rw [← add_smul]
+    have : 1 - u + u = 1 := by ring
+    rw [this, one_smul]
+  calc
+    (L.offset / @inner ℝ Plane2 _ L.normVec L.normVec) • L.normVec +
+        ((1 - u) * t₁ + u * t₂) • rot90 L.normVec
+      = (L.offset / @inner ℝ Plane2 _ L.normVec L.normVec) • L.normVec +
+        ((1 - u) * t₁) • rot90 L.normVec + (u * t₂) • rot90 L.normVec := by
+          rw [add_smul, mul_smul, mul_smul, add_assoc]
+    _ = (1 - u) • ((L.offset / @inner ℝ Plane2 _ L.normVec L.normVec) • L.normVec) +
+        u • ((L.offset / @inner ℝ Plane2 _ L.normVec L.normVec) • L.normVec) +
+        ((1 - u) * t₁) • rot90 L.normVec + (u * t₂) • rot90 L.normVec := by rw [h_add]
+    _ = (1 - u) • ((L.offset / @inner ℝ Plane2 _ L.normVec L.normVec) • L.normVec) +
+        (1 - u) • (t₁ • rot90 L.normVec) +
+        (u • ((L.offset / @inner ℝ Plane2 _ L.normVec L.normVec) • L.normVec) +
+        u • (t₂ • rot90 L.normVec)) := by
+          rw [mul_smul, mul_smul]
+          abel
+    _ = (1 - u) • linePt L t₁ + u • linePt L t₂ := by
+          dsimp [linePt]
+          rw [smul_add, smul_add]
+
+/-- 直線パラメータ写像の内積のアフィン結合保存性。 -/
+lemma inner_linePt_affine_comb (L : Line2) (n : Plane2) (u t₁ t₂ : ℝ) :
+    @inner ℝ Plane2 _ n (linePt L ((1 - u) * t₁ + u * t₂)) =
+      (1 - u) * (@inner ℝ Plane2 _ n (linePt L t₁)) + u * (@inner ℝ Plane2 _ n (linePt L t₂)) := by
+  have h_comb : linePt L ((1 - u) * t₁ + u * t₂) =
+      (1 - u) • linePt L t₁ + u • linePt L t₂ := linePt_affine_comb L u t₁ t₂
+  rw [h_comb, inner_add_right, inner_smul_right, inner_smul_right]
+
+/-- 直線上の2点の差ベクトル。 -/
+lemma linePt_sub (L : Line2) (t₁ t₂ : ℝ) :
+    linePt L t₁ - linePt L t₂ = (t₁ - t₂) • rot90 L.normVec := by
+  dsimp [linePt]
+  rw [add_sub_add_left_eq_sub, ← sub_smul]
+
+/-- 非平行な2直線の交点パラメータの一意性。 -/
+lemma eq_of_mem_line_linePt (L₁ L₂ : Line2) (h_not_par : ¬ parallelLines L₁ L₂)
+    {t₁ t₂ : ℝ} (h1 : linePt L₂ t₁ ∈ L₁.toSet) (h2 : linePt L₂ t₂ ∈ L₁.toSet) :
+    t₁ = t₂ := by
+  by_contra h_ne
+  have h_sub : @inner ℝ Plane2 _ L₁.normVec (linePt L₂ t₁ - linePt L₂ t₂) = 0 := by
+    rw [inner_sub_right, h1, h2, sub_self]
+  rw [linePt_sub, inner_smul_right] at h_sub
+  have h_inner_zero : @inner ℝ Plane2 _ L₁.normVec (rot90 L₂.normVec) = 0 := by
+    have : t₁ - t₂ ≠ 0 := sub_ne_zero.mpr h_ne
+    exact (mul_eq_zero.mp h_sub).resolve_left this
+  apply h_not_par
+  exact parallel_of_inner_rot90_zero L₁.normVec L₂.normVec L₂.normVec_ne_zero h_inner_zero
+
+/-- 交点パラメータの値の一致性。 -/
+lemma rawIntersectionParam_eq (k : ℕ) (L : Fin (k + 1) → Line2) (i : Fin k)
+    (h_not_par : ¬ parallelLines (L (Fin.castSucc i)) (L (Fin.last k)))
+    {t : ℝ} (ht : linePt (L (Fin.last k)) t ∈ (L (Fin.castSucc i)).toSet) :
+    rawIntersectionParam k L i = t := by
+  dsimp [rawIntersectionParam]
+  have hex : ∃ t' : ℝ, linePt (L (Fin.last k)) t' ∈ (L (Fin.castSucc i)).toSet := ⟨t, ht⟩
+  simp only [hex, dite_true]
+  have h_choose := Classical.choose_spec hex
+  exact eq_of_mem_line_linePt (L (Fin.castSucc i)) (L (Fin.last k)) h_not_par h_choose ht
+
+open Classical in
+/-- 直線上の符号が異なる2点の間にある交点パラメータの存在。 -/
+lemma exists_intersectionParam_between (k : ℕ) (L : Fin (k + 1) → Line2)
+    {t₁ t₂ : ℝ} (i : Fin k)
+    (h_sign1 : (L (Fin.castSucc i)).offset <
+      @inner ℝ Plane2 _ (L (Fin.castSucc i)).normVec (linePt (L (Fin.last k)) t₁))
+    (h_sign2 : @inner ℝ Plane2 _ (L (Fin.castSucc i)).normVec (linePt (L (Fin.last k)) t₂) <
+      (L (Fin.castSucc i)).offset) :
+    ∃ t_star ∈ lineIntersectionParams k L,
+      (t₁ < t_star ∧ t_star < t₂) ∨ (t₂ < t_star ∧ t_star < t₁) := by
+  let n := (L (Fin.castSucc i)).normVec
+  let c := (L (Fin.castSucc i)).offset
+  let f := fun t => @inner ℝ Plane2 _ n (linePt (L (Fin.last k)) t)
+  have h_denom : 0 < f t₁ - f t₂ := by
+    dsimp [f]
+    linarith
+  let u := (f t₁ - c) / (f t₁ - f t₂)
+  have hu_pos : 0 < u := by
+    dsimp [u]
+    exact div_pos (by dsimp [f]; linarith) h_denom
+  have hu_lt_one : u < 1 := by
+    dsimp [u]
+    rw [div_lt_one h_denom]
+    dsimp [f]
+    linarith
+  have h_one_sub_u : 1 - u = (c - f t₂) / (f t₁ - f t₂) := by
+    dsimp [u]
+    have h_ne : f t₁ - f t₂ ≠ 0 := ne_of_gt h_denom
+    field_simp
+    ring
+  let t_star := (1 - u) * t₁ + u * t₂
+  have h_f_star : f t_star = c := by
+    dsimp [f, t_star]
+    rw [inner_linePt_affine_comb]
+    dsimp [f] at h_one_sub_u
+    rw [h_one_sub_u]
+    dsimp [u, f]
+    have h_ne : inner ℝ n (linePt (L (Fin.last k)) t₁) -
+        inner ℝ n (linePt (L (Fin.last k)) t₂) ≠ 0 := ne_of_gt h_denom
+    field_simp
+    ring
+  have h_mem_Li : linePt (L (Fin.last k)) t_star ∈ (L (Fin.castSucc i)).toSet := by
+    dsimp [Line2.toSet]
+    exact h_f_star
+  have ht_ne : t₁ ≠ t₂ := by
+    intro h_eq
+    rw [h_eq] at h_sign1
+    linarith
+  have h_not_par : ¬ parallelLines (L (Fin.castSucc i)) (L (Fin.last k)) :=
+    not_parallel_of_sign_ne k L ht_ne i h_sign1 h_sign2
+  have h_raw_eq : rawIntersectionParam k L i = t_star :=
+    rawIntersectionParam_eq k L i h_not_par h_mem_Li
+  have h_inter : hasIntersectionWithLast k L i := h_not_par
+  have h_in_params : t_star ∈ lineIntersectionParams k L := by
+    dsimp [lineIntersectionParams]
+    rw [Finset.mem_image]
+    use i
+    refine ⟨?_, h_raw_eq⟩
+    dsimp [intersectingIndices]
+    exact Finset.mem_filter.mpr ⟨Finset.mem_univ i, h_inter⟩
+  use t_star, h_in_params
+  rcases lt_trichotomy t₁ t₂ with hlt | heq | hgt
+  · left
+    have h_sub1 : t_star - t₁ = u * (t₂ - t₁) := by
+      dsimp [t_star]
+      ring
+    have h_sub2 : t₂ - t_star = (1 - u) * (t₂ - t₁) := by
+      dsimp [t_star]
+      ring
+    have h_diff_pos : 0 < t₂ - t₁ := sub_pos.mpr hlt
+    have h1 : t₁ < t_star := by
+      rw [← sub_pos, h_sub1]
+      exact mul_pos hu_pos h_diff_pos
+    have h2 : t_star < t₂ := by
+      rw [← sub_pos, h_sub2]
+      exact mul_pos (sub_pos.mpr hu_lt_one) h_diff_pos
+    exact ⟨h1, h2⟩
+  · exact (ht_ne heq).elim
+  · right
+    have h_sub1 : t_star - t₂ = (1 - u) * (t₁ - t₂) := by
+      dsimp [t_star]
+      ring
+    have h_sub2 : t₁ - t_star = u * (t₁ - t₂) := by
+      dsimp [t_star]
+      ring
+    have h_diff_pos : 0 < t₁ - t₂ := sub_pos.mpr hgt
+    have h1 : t₂ < t_star := by
+      rw [← sub_pos, h_sub1]
+      exact mul_pos (sub_pos.mpr hu_lt_one) h_diff_pos
+    have h2 : t_star < t₁ := by
+      rw [← sub_pos, h_sub2]
+      exact mul_pos hu_pos h_diff_pos
+    exact ⟨h1, h2⟩
+
+/-- 点集合の元を挟む2点に対する countLt の真の狭義単調性。 -/
+lemma countLt_lt_countLt_of_mem_between (S : Finset ℝ) {t₁ t₂ t_star : ℝ}
+    (h_between : t₁ < t_star ∧ t_star < t₂) (hs : t_star ∈ S) :
+    countLt S t₁ < countLt S t₂ := by
+  dsimp [countLt]
+  have h_sub : Finset.filter (· < t₁) S ⊆ Finset.filter (· < t₂) S := by
+    intro s hs_mem
+    rw [Finset.mem_filter] at hs_mem ⊢
+    exact ⟨hs_mem.1, lt_trans hs_mem.2 (lt_trans h_between.1 h_between.2)⟩
+  have h_not_mem : t_star ∉ Finset.filter (· < t₁) S := by
+    intro h
+    rw [Finset.mem_filter] at h
+    linarith
+  have h_mem : t_star ∈ Finset.filter (· < t₂) S := by
+    rw [Finset.mem_filter]
+    exact ⟨hs, h_between.2⟩
+  have h_ssub : Finset.filter (· < t₁) S ⊂ Finset.filter (· < t₂) S :=
+    Finset.ssubset_iff_subset_ne.mpr ⟨h_sub, fun h_eq => h_not_mem (h_eq ▸ h_mem)⟩
+  exact Finset.card_lt_card h_ssub
+
+/-- 同一連結成分に属する2点の間には境界点集合の元が存在しない。 -/
+lemma not_between_of_connectedComponent_eq (S : Finset ℝ) (t₁ t₂ : ℝ)
+    (ht₁ : t₁ ∉ S) (ht₂ : t₂ ∉ S)
+    (h_comp : Quotient.mk (connectedComponentSetoid {t // t ∉ S}) ⟨t₁, ht₁⟩ =
+              Quotient.mk (connectedComponentSetoid {t // t ∉ S}) ⟨t₂, ht₂⟩)
+    {t_star : ℝ} (hs : t_star ∈ S) :
+    ¬ ((t₁ < t_star ∧ t_star < t₂) ∨ (t₂ < t_star ∧ t_star < t₁)) := by
+  intro h_bet
+  let _ : Setoid {t // t ∉ S} := connectedComponentSetoid {t // t ∉ S}
+  have hequiv : (⟨t₁, ht₁⟩ : {t // t ∉ S}) ≈ (⟨t₂, ht₂⟩ : {t // t ∉ S}) := Quotient.exact h_comp
+  have h_eq := countLt_eq_of_connectedComponent_eq ⟨t₁, ht₁⟩ ⟨t₂, ht₂⟩ hequiv
+  rcases h_bet with h1 | h2
+  · have h_lt := countLt_lt_countLt_of_mem_between S h1 hs
+    linarith
+  · have h_lt := countLt_lt_countLt_of_mem_between S h2 hs
+    linarith
+
 open Classical in
 /-- 第 $(k+1)$ 直線によって2分割される既存領域の個数。
 切断条件を満たす符号ベクトルの個数として定義される。 -/
@@ -859,11 +1194,74 @@ noncomputable def splitRegionsCount (k : ℕ) (L : Fin (k + 1) → Line2) : ℕ 
   (Finset.filter (fun σ =>
     isSplitByLine (convexPlaneRegion k (L ∘ Fin.castSucc) σ) (L (Fin.last k))) Finset.univ).card
 
+open Classical in
 /-- 切断された既存領域の個数は、$(k+1)$ 本目の直線上に現れる互いに素な開区間数以下である。
-交差区間の互いに素な性質 (disjoint_intersections_on_line) から従う。 -/
+切断領域の代表点を直線上の開区間(連結成分)に単射づけることで証明される。 -/
 lemma splitRegionsCount_le_lineIntervals (k : ℕ) (L : Fin (k + 1) → Line2) :
     splitRegionsCount k L ≤ realIntervalsCount (lineIntersectionParams k L) := by
-  sorry
+  let S := lineIntersectionParams k L
+  let s := connectedComponentSetoid {t // t ∉ S}
+  let split_sigs := Finset.filter (fun σ =>
+    isSplitByLine (convexPlaneRegion k (L ∘ Fin.castSucc) σ) (L (Fin.last k))) Finset.univ
+  have h_rep : ∀ σ ∈ split_sigs, ∃ t : ℝ,
+      linePt (L (Fin.last k)) t ∈ convexPlaneRegion k (L ∘ Fin.castSucc) σ ∧ t ∉ S := by
+    intro σ hσ
+    dsimp [split_sigs] at hσ
+    rw [Finset.mem_filter] at hσ
+    obtain ⟨p, hp_reg, hp_line⟩ := hσ.2
+    obtain ⟨t, rfl⟩ := exists_t_linePt_eq (L (Fin.last k)) hp_line
+    have ht_not := not_mem_lineIntersectionParams_of_mem_region k L σ hp_reg
+    exact ⟨t, hp_reg, ht_not⟩
+  choose w hw using (fun (σ : split_sigs) => h_rep σ.1 σ.2)
+  let g : split_sigs → Quotient s := fun σ => Quotient.mk s ⟨w σ, (hw σ).2⟩
+  have hg_inj : Function.Injective g := by
+    intro σ₁ σ₂ hg
+    by_contra h_ne
+    have h_sig_ne : σ₁.1 ≠ σ₂.1 := fun h => h_ne (Subtype.ext h)
+    obtain ⟨i, hi⟩ : ∃ i, σ₁.1 i ≠ σ₂.1 i := by
+      by_contra h_all
+      apply h_sig_ne
+      ext i
+      by_contra h_not
+      exact h_all ⟨i, h_not⟩
+    have h_comp : Quotient.mk s ⟨w σ₁, (hw σ₁).2⟩ = Quotient.mk s ⟨w σ₂, (hw σ₂).2⟩ := hg
+    cases h1 : σ₁.1 i <;> cases h2 : σ₂.1 i
+    · exact (hi (by rw [h1, h2])).elim
+    · have hp1 := (hw σ₁).1
+      have hp2 := (hw σ₂).1
+      dsimp [convexPlaneRegion] at hp1 hp2
+      have h_sign1 := hp1 i
+      have h_sign2 := hp2 i
+      rw [h1] at h_sign1
+      rw [h2] at h_sign2
+      dsimp at h_sign1 h_sign2
+      obtain ⟨t_star, hs, h_bet⟩ := exists_intersectionParam_between k L i h_sign2 h_sign1
+      have h_not := not_between_of_connectedComponent_eq S (w σ₂) (w σ₁)
+        (hw σ₂).2 (hw σ₁).2 (h_comp.symm) hs
+      exact h_not h_bet
+    · have hp1 := (hw σ₁).1
+      have hp2 := (hw σ₂).1
+      dsimp [convexPlaneRegion] at hp1 hp2
+      have h_sign1 := hp1 i
+      have h_sign2 := hp2 i
+      rw [h1] at h_sign1
+      rw [h2] at h_sign2
+      dsimp at h_sign1 h_sign2
+      obtain ⟨t_star, hs, h_bet⟩ := exists_intersectionParam_between k L i h_sign1 h_sign2
+      have h_not := not_between_of_connectedComponent_eq S (w σ₁) (w σ₂)
+        (hw σ₁).2 (hw σ₂).2 h_comp hs
+      exact h_not h_bet
+    · exact (hi (by rw [h1, h2])).elim
+  let f_int : {t // t ∉ S} → Fin (S.card + 1) := fun x => countLtFin S x.val
+  have h_fiber_int : ∀ x y, f_int x = f_int y → x ≈ y := by
+    intro x y hfg
+    exact connectedComponent_eq_of_countLtFin_eq x y hfg
+  have : Finite (Quotient s) := finite_quotient_of_fiber_le s f_int h_fiber_int
+  have h_le := Nat.card_le_card_of_injective g hg_inj
+  dsimp [splitRegionsCount, split_sigs]
+  have h_card_split : Fintype.card split_sigs = split_sigs.card := Fintype.card_coe split_sigs
+  rw [Nat.card_eq_fintype_card, h_card_split] at h_le
+  exact h_le
 
 /-- 開半空間の共通部分として定義される領域は凸集合である。
 領域内の2点の任意の真の内分点は、再び同じ領域に属する。 -/
@@ -1289,16 +1687,6 @@ lemma mem_convexPlaneRegion_segment {k : ℕ} (L : Fin k → Line2) (σ : SignVe
       have hb : 0 < t := ht0
       have hab : (1 - t) + t = 1 := by ring
       exact convex_combination_mem_region L σ hp₁ hp₂ ha hb hab
-
-/-- 凸開領域に属する点は、配置内のどの直線にも属さない。 -/
-lemma not_mem_line_of_mem_convexPlaneRegion {k : ℕ} (L : Fin k → Line2) (σ : SignVector2 k)
-    {p : Plane2} (hp : p ∈ convexPlaneRegion k L σ) (i : Fin k) :
-    p ∉ (L i).toSet := by
-  have h := hp i
-  dsimp [Line2.toSet]
-  split_ifs at h with hσ
-  · linarith
-  · linarith
 
 /-- 属する符号ベクトルが一致する2点は、同一の連結成分に属する。
 凸領域内の線分による弧状連結性と、連結像の連結成分包含性により証明される。 -/
