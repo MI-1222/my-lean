@@ -334,10 +334,24 @@ lemma card_lineIntersectionParams_le (k : ℕ) (L : Fin (k + 1) → Line2) :
     _ ≤ (Finset.univ : Finset (Fin k)).card := Finset.card_le_univ _
     _ = k := Fintype.card_fin k
 
+/-! #### ステップ 2-B: 1次元区間数と交点数の結合 -/
+
+/-- $(k+1)$ 本目の直線上に生じる互いに素な開区間(連結成分)の個数は高々 $k + 1$ 個である。
+ステップ 1 (card_intervals_of_finset_real) とステップ 2 (card_lineIntersectionParams_le)
+を組み合わせることで直ちに導かれる。 -/
+lemma lineIntervals_succ_le (k : ℕ) (L : Fin (k + 1) → Line2) :
+    realIntervalsCount (lineIntersectionParams k L) ≤ k + 1 := by
+  have h1 := card_intervals_of_finset_real (lineIntersectionParams k L)
+  have h2 := card_lineIntersectionParams_le k L
+  omega
+
 /-! #### ステップ 3: 凸領域(符号ベクトル)の切断と直線上の区間への単射 -/
 
 /-- 直線群によって定まる開半空間の符号写像。各直線に対し正負のどちら側にあるかを表す。 -/
-def SignVector2 (k : ℕ) := Fin k → Bool
+@[reducible] def SignVector2 (k : ℕ) := Fin k → Bool
+
+instance (k : ℕ) : Fintype (SignVector2 k) :=
+  inferInstanceAs (Fintype (Fin k → Bool))
 
 /-- 符号写像 σ が定める平面上の開凸多角形領域。 -/
 def convexPlaneRegion (k : ℕ) (L : Fin k → Line2) (σ : SignVector2 k) : Set Plane2 :=
@@ -351,8 +365,7 @@ def isSplitByLine (s : Set Plane2) (line : Line2) : Prop :=
   (s ∩ line.toSet).Nonempty
 
 /-- 切断と交差の対応補題:
-既存の凸領域が新しい直線によって分割されることと、直線との交わりが非空であることは同値である。
-凸開集合の中間値の定理から従う。 -/
+既存の凸領域が新しい直線によって分割されることと、直線との交わりが非空であることは同値である。 -/
 lemma split_region_intersects_line (k : ℕ) (L : Fin (k + 1) → Line2) (σ : SignVector2 k)
     (hsplit : isSplitByLine (convexPlaneRegion k (L ∘ Fin.castSucc) σ) (L (Fin.last k))) :
     (convexPlaneRegion k (L ∘ Fin.castSucc) σ ∩ (L (Fin.last k)).toSet).Nonempty := by
@@ -387,13 +400,35 @@ lemma disjoint_intersections_on_line (k : ℕ) (L : Fin (k + 1) → Line2)
   refine Disjoint.mono inf_le_left inf_le_left ?_
   exact disjoint_convexPlaneRegion k (L ∘ Fin.castSucc) σ₁ σ₂ hne
 
+open Classical in
+/-- 第 $(k+1)$ 直線によって2分割される既存領域の個数。
+切断条件を満たす符号ベクトルの個数として定義される。 -/
+noncomputable def splitRegionsCount (k : ℕ) (L : Fin (k + 1) → Line2) : ℕ :=
+  (Finset.filter (fun σ =>
+    isSplitByLine (convexPlaneRegion k (L ∘ Fin.castSucc) σ) (L (Fin.last k))) Finset.univ).card
+
+/-- 切断された既存領域の個数は、$(k+1)$ 本目の直線上に現れる互いに素な開区間数以下である。
+交差区間の互いに素な性質 (disjoint_intersections_on_line) から従う。 -/
+lemma splitRegionsCount_le_lineIntervals (k : ℕ) (L : Fin (k + 1) → Line2) :
+    splitRegionsCount k L ≤ realIntervalsCount (lineIntersectionParams k L) := by
+  sorry
+
+/-- 平面領域の増加量は、切断された既存領域の個数に一致する(高々等しい)。
+切断されない領域はそのまま残り、切断された各領域はちょうど2つに分かれるため増加量は各1個である。 -/
+lemma planeRegionsCount_succ_le_add_split (k : ℕ) (L : Fin (k + 1) → Line2) :
+    planeRegionsCount (k + 1) L ≤
+      planeRegionsCount k (L ∘ Fin.castSucc) + splitRegionsCount k L := by
+  sorry
+
 /-- 2次元平面における直線追加の幾何学的漸化不等式:
 $(k+1)$ 本目の直線を追加したとき、既存の $k$ 本の直線との交点で高々 $k+1$ 個の線分・半直線に分かれ、
-平面領域数の増加量は高々 $k+1$ である。
-証明は直線上の有限点集合による区間分割への単射に帰着される。 -/
+平面領域数の増加量は高々 $k+1$ である。 -/
 lemma planeRegionsCount_succ_le (k : ℕ) (L : Fin (k + 1) → Line2) :
     planeRegionsCount (k + 1) L ≤ planeRegionsCount k (L ∘ Fin.castSucc) + (k + 1) := by
-  sorry
+  have h_split := planeRegionsCount_succ_le_add_split k L
+  have h_le_intervals := splitRegionsCount_le_lineIntervals k L
+  have h_intervals_le := lineIntervals_succ_le k L
+  omega
 
 /-! #### 補集合が全空間となる場合の連結成分数補題 -/
 
