@@ -2873,6 +2873,7 @@ lemma inner_planeBasis2_planeBasis1 (u : Space3) :
   simp
   ring
 
+set_option linter.flexible false in
 lemma eq_zero_of_orthogonal_inners_zero (u : Space3) (hu : u ≠ 0) (w : Space3)
     (h_uw : @inner ℝ Space3 _ u w = 0)
     (h_e1w : @inner ℝ Space3 _ (planeBasis1 u) w = 0)
@@ -2969,6 +2970,7 @@ lemma eq_zero_of_orthogonal_inners_zero (u : Space3) (hu : u ≠ 0) (w : Space3)
     · exact hw1
     · exact hw2
 
+set_option linter.flexible false in
 lemma planeBasis1_ne_zero (u : Space3) (hu : u ≠ 0) : planeBasis1 u ≠ 0 := by
   dsimp [planeBasis1]
   intro h0
@@ -2991,6 +2993,7 @@ lemma planeBasis1_ne_zero (u : Space3) (hu : u ≠ 0) : planeBasis1 u ≠ 0 := b
     change u0 = 0 at h_zero1
     exact h_case ⟨h_zero1, by linarith⟩
 
+set_option linter.flexible false in
 lemma planeBasis2_ne_zero (u : Space3) (hu : u ≠ 0) : planeBasis2 u ≠ 0 := by
   intro h0
   let u0 := WithLp.equiv 2 (Fin 3 → ℝ) u 0
