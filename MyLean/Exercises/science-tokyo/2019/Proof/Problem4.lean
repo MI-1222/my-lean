@@ -6307,14 +6307,410 @@ lemma spaceRegionsCount_four_ne_thirteen (H : Fin 4 → Plane3)
     spaceRegionsCount 4 H ≠ 13 := by
   sorry
 
+/-- 3次元空間の任意の点 $(x, y, z)$。 -/
+def ptXYZ (x y z : ℝ) : Space3 :=
+  (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![x, y, z]
+
+lemma ptXYZ_apply_zero (x y z : ℝ) : (ptXYZ x y z) 0 = x := rfl
+lemma ptXYZ_apply_one (x y z : ℝ) : (ptXYZ x y z) 1 = y := rfl
+lemma ptXYZ_apply_two (x y z : ℝ) : (ptXYZ x y z) 2 = z := rfl
+
+lemma inner_e2Vec_ptXYZ (x y z : ℝ) :
+    @inner ℝ Space3 _ e2Vec (ptXYZ x y z) = z := by
+  rw [inner_e2Vec, ptXYZ_apply_two]
+
+lemma inner_v0_ptXYZ (x y z : ℝ) :
+    @inner ℝ Space3 _ v0_vec (ptXYZ x y z) = x := by
+  rw [inner_v0_vec, ptXYZ_apply_zero]
+
+lemma inner_v1_ptXYZ (x y z : ℝ) :
+    @inner ℝ Space3 _ v1_vec (ptXYZ x y z) = y := by
+  rw [inner_v1_vec, ptXYZ_apply_one]
+
+/-- $n = 3$ において領域数6を達成する配置: $z = 0$, $z = 1$, $x = 0$ -/
+def H_three_six : Fin 3 → Plane3 :=
+  ![zPlane 0, zPlane 1, plane_x0]
+
+lemma distinctPlanes_three_six : DistinctPlanes 3 H_three_six := by
+  intro i j hij
+  fin_cases i <;> fin_cases j
+  · rfl
+  · exfalso
+    change (H_three_six 0).toSet = (H_three_six 1).toSet at hij
+    have hmem : ptXYZ 0 0 0 ∈ (H_three_six 0).toSet := by
+      dsimp [Plane3.toSet, H_three_six, zPlane]; rw [inner_e2Vec_ptXYZ]
+    have hmem' : ptXYZ 0 0 0 ∈ (H_three_six 1).toSet := hij ▸ hmem
+    dsimp [Plane3.toSet, H_three_six, zPlane] at hmem'
+    rw [inner_e2Vec_ptXYZ] at hmem'; linarith
+  · exfalso
+    change (H_three_six 0).toSet = (H_three_six 2).toSet at hij
+    have hmem : ptXYZ 0 0 0 ∈ (H_three_six 0).toSet := by
+      dsimp [Plane3.toSet, H_three_six, zPlane]; rw [inner_e2Vec_ptXYZ]
+    have hmem' : ptXYZ 0 0 0 ∈ (H_three_six 2).toSet := hij ▸ hmem
+    dsimp [Plane3.toSet, H_three_six, plane_x0] at hmem'
+    have hmem2 : ptXYZ 0 0 1 ∈ (H_three_six 2).toSet := by
+      dsimp [Plane3.toSet, H_three_six, plane_x0]; rw [inner_v0_ptXYZ]
+    have hmem2' : ptXYZ 0 0 1 ∈ (H_three_six 0).toSet := hij.symm ▸ hmem2
+    dsimp [Plane3.toSet, H_three_six, zPlane] at hmem2'
+    rw [inner_e2Vec_ptXYZ] at hmem2'; linarith
+  · exfalso
+    change (H_three_six 1).toSet = (H_three_six 0).toSet at hij
+    have hmem : ptXYZ 0 0 1 ∈ (H_three_six 1).toSet := by
+      dsimp [Plane3.toSet, H_three_six, zPlane]; rw [inner_e2Vec_ptXYZ]
+    have hmem' : ptXYZ 0 0 1 ∈ (H_three_six 0).toSet := hij ▸ hmem
+    dsimp [Plane3.toSet, H_three_six, zPlane] at hmem'
+    rw [inner_e2Vec_ptXYZ] at hmem'; linarith
+  · rfl
+  · exfalso
+    change (H_three_six 1).toSet = (H_three_six 2).toSet at hij
+    have hmem : ptXYZ 0 0 0 ∈ (H_three_six 2).toSet := by
+      dsimp [Plane3.toSet, H_three_six, plane_x0]; rw [inner_v0_ptXYZ]
+    have hmem' : ptXYZ 0 0 0 ∈ (H_three_six 1).toSet := hij.symm ▸ hmem
+    dsimp [Plane3.toSet, H_three_six, zPlane] at hmem'
+    rw [inner_e2Vec_ptXYZ] at hmem'; linarith
+  · exfalso
+    change (H_three_six 2).toSet = (H_three_six 0).toSet at hij
+    have hmem : ptXYZ 0 0 1 ∈ (H_three_six 2).toSet := by
+      dsimp [Plane3.toSet, H_three_six, plane_x0]; rw [inner_v0_ptXYZ]
+    have hmem' : ptXYZ 0 0 1 ∈ (H_three_six 0).toSet := hij ▸ hmem
+    dsimp [Plane3.toSet, H_three_six, zPlane] at hmem'
+    rw [inner_e2Vec_ptXYZ] at hmem'; linarith
+  · exfalso
+    change (H_three_six 2).toSet = (H_three_six 1).toSet at hij
+    have hmem : ptXYZ 0 0 0 ∈ (H_three_six 2).toSet := by
+      dsimp [Plane3.toSet, H_three_six, plane_x0]; rw [inner_v0_ptXYZ]
+    have hmem' : ptXYZ 0 0 0 ∈ (H_three_six 1).toSet := hij ▸ hmem
+    dsimp [Plane3.toSet, H_three_six, zPlane] at hmem'
+    rw [inner_e2Vec_ptXYZ] at hmem'; linarith
+  · rfl
+
+lemma convexSpaceRegion_three_six_FT_empty (b : Bool) :
+    ¬ (convexSpaceRegion 3 H_three_six ![(false : Bool), true, b]).Nonempty := by
+  rintro ⟨p, hp⟩
+  have h0 := hp 0
+  have h1 := hp 1
+  dsimp [convexSpaceRegion, H_three_six, zPlane] at h0 h1
+  rw [inner_e2Vec] at h0 h1
+  linarith
+
+lemma convexSpaceRegion_three_six_FFF_nonempty :
+    (convexSpaceRegion 3 H_three_six ![(false : Bool), false, false]).Nonempty := by
+  use ptXYZ (-1) 0 (-1)
+  intro i; fin_cases i
+  · dsimp [convexSpaceRegion, H_three_six, zPlane]; rw [inner_e2Vec_ptXYZ]; linarith
+  · dsimp [convexSpaceRegion, H_three_six, zPlane]; rw [inner_e2Vec_ptXYZ]; linarith
+  · dsimp [convexSpaceRegion, H_three_six, plane_x0]; rw [inner_v0_ptXYZ]; linarith
+
+lemma convexSpaceRegion_three_six_FFT_nonempty :
+    (convexSpaceRegion 3 H_three_six ![(false : Bool), false, true]).Nonempty := by
+  use ptXYZ 1 0 (-1)
+  intro i; fin_cases i
+  · dsimp [convexSpaceRegion, H_three_six, zPlane]; rw [inner_e2Vec_ptXYZ]; linarith
+  · dsimp [convexSpaceRegion, H_three_six, zPlane]; rw [inner_e2Vec_ptXYZ]; linarith
+  · dsimp [convexSpaceRegion, H_three_six, plane_x0]; rw [inner_v0_ptXYZ]; linarith
+
+lemma convexSpaceRegion_three_six_TFF_nonempty :
+    (convexSpaceRegion 3 H_three_six ![(true : Bool), false, false]).Nonempty := by
+  use ptXYZ (-1) 0 (1/2)
+  intro i; fin_cases i
+  · dsimp [convexSpaceRegion, H_three_six, zPlane]; rw [inner_e2Vec_ptXYZ]; linarith
+  · dsimp [convexSpaceRegion, H_three_six, zPlane]; rw [inner_e2Vec_ptXYZ]; linarith
+  · dsimp [convexSpaceRegion, H_three_six, plane_x0]; rw [inner_v0_ptXYZ]; linarith
+
+lemma convexSpaceRegion_three_six_TFT_nonempty :
+    (convexSpaceRegion 3 H_three_six ![(true : Bool), false, true]).Nonempty := by
+  use ptXYZ 1 0 (1/2)
+  intro i; fin_cases i
+  · dsimp [convexSpaceRegion, H_three_six, zPlane]; rw [inner_e2Vec_ptXYZ]; linarith
+  · dsimp [convexSpaceRegion, H_three_six, zPlane]; rw [inner_e2Vec_ptXYZ]; linarith
+  · dsimp [convexSpaceRegion, H_three_six, plane_x0]; rw [inner_v0_ptXYZ]; linarith
+
+lemma convexSpaceRegion_three_six_TTF_nonempty :
+    (convexSpaceRegion 3 H_three_six ![(true : Bool), true, false]).Nonempty := by
+  use ptXYZ (-1) 0 2
+  intro i; fin_cases i
+  · dsimp [convexSpaceRegion, H_three_six, zPlane]; rw [inner_e2Vec_ptXYZ]; linarith
+  · dsimp [convexSpaceRegion, H_three_six, zPlane]; rw [inner_e2Vec_ptXYZ]; linarith
+  · dsimp [convexSpaceRegion, H_three_six, plane_x0]; rw [inner_v0_ptXYZ]; linarith
+
+lemma convexSpaceRegion_three_six_TTT_nonempty :
+    (convexSpaceRegion 3 H_three_six ![(true : Bool), true, true]).Nonempty := by
+  use ptXYZ 1 0 2
+  intro i; fin_cases i
+  · dsimp [convexSpaceRegion, H_three_six, zPlane]; rw [inner_e2Vec_ptXYZ]; linarith
+  · dsimp [convexSpaceRegion, H_three_six, zPlane]; rw [inner_e2Vec_ptXYZ]; linarith
+  · dsimp [convexSpaceRegion, H_three_six, plane_x0]; rw [inner_v0_ptXYZ]; linarith
+
+lemma spaceRegionsCount_three_six_eq_six :
+    spaceRegionsCount 3 H_three_six = 6 := by
+  rw [spaceRegionsCount_eq_card_nonempty_convexSpaceRegion]
+  have hs : (Finset.filter (fun σ =>
+      (convexSpaceRegion 3 H_three_six σ).Nonempty) Finset.univ) =
+      {![(false : Bool), false, false],
+       ![(false : Bool), false, true],
+       ![(true : Bool), false, false],
+       ![(true : Bool), false, true],
+       ![(true : Bool), true, false],
+       ![(true : Bool), true, true]} := by
+    ext σ
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and,
+      Finset.mem_insert, Finset.mem_singleton]
+    constructor
+    · intro hne
+      rcases signVector_three_cases σ with h | h | h | h | h | h | h | h
+      · left; exact h
+      · right; right; left; exact h
+      · right; right; right; left; exact h
+      · exfalso; subst h
+        exact (convexSpaceRegion_three_six_FT_empty false hne).elim
+      · exfalso; subst h
+        exact (convexSpaceRegion_three_six_FT_empty true hne).elim
+      · right; right; right; right; left; exact h
+      · right; right; right; right; right; exact h
+      · right; left; exact h
+    · rintro (rfl | rfl | rfl | rfl | rfl | rfl)
+      · exact convexSpaceRegion_three_six_FFF_nonempty
+      · exact convexSpaceRegion_three_six_FFT_nonempty
+      · exact convexSpaceRegion_three_six_TFF_nonempty
+      · exact convexSpaceRegion_three_six_TFT_nonempty
+      · exact convexSpaceRegion_three_six_TTF_nonempty
+      · exact convexSpaceRegion_three_six_TTT_nonempty
+  rw [hs]
+  decide
+
+/-- $n = 4$ において領域数12を達成する配置: $z = 0$, $z = 1$, $x = 0$, $y = 0$ -/
+def H_four_twelve : Fin 4 → Plane3 :=
+  ![zPlane 0, zPlane 1, plane_x0, plane_y0]
+
+lemma distinctPlanes_four_twelve : DistinctPlanes 4 H_four_twelve := by
+  intro i j hij
+  fin_cases i <;> fin_cases j
+  · rfl
+  · exfalso
+    change (H_four_twelve 0).toSet = (H_four_twelve 1).toSet at hij
+    have hmem : ptXYZ 0 0 0 ∈ (H_four_twelve 0).toSet := by
+      dsimp [Plane3.toSet, H_four_twelve, zPlane]; rw [inner_e2Vec_ptXYZ]
+    have hmem' : ptXYZ 0 0 0 ∈ (H_four_twelve 1).toSet := hij ▸ hmem
+    dsimp [Plane3.toSet, H_four_twelve, zPlane] at hmem'
+    rw [inner_e2Vec_ptXYZ] at hmem'; linarith
+  · exfalso
+    change (H_four_twelve 0).toSet = (H_four_twelve 2).toSet at hij
+    have hmem : ptXYZ 0 0 1 ∈ (H_four_twelve 2).toSet := by
+      dsimp [Plane3.toSet, H_four_twelve, plane_x0]; rw [inner_v0_ptXYZ]
+    have hmem' : ptXYZ 0 0 1 ∈ (H_four_twelve 0).toSet := hij.symm ▸ hmem
+    dsimp [Plane3.toSet, H_four_twelve, zPlane] at hmem'
+    rw [inner_e2Vec_ptXYZ] at hmem'; linarith
+  · exfalso
+    change (H_four_twelve 0).toSet = (H_four_twelve 3).toSet at hij
+    have hmem : ptXYZ 0 0 1 ∈ (H_four_twelve 3).toSet := by
+      dsimp [Plane3.toSet, H_four_twelve, plane_y0]; rw [inner_v1_ptXYZ]
+    have hmem' : ptXYZ 0 0 1 ∈ (H_four_twelve 0).toSet := hij.symm ▸ hmem
+    dsimp [Plane3.toSet, H_four_twelve, zPlane] at hmem'
+    rw [inner_e2Vec_ptXYZ] at hmem'; linarith
+  · exfalso
+    change (H_four_twelve 1).toSet = (H_four_twelve 0).toSet at hij
+    have hmem : ptXYZ 0 0 1 ∈ (H_four_twelve 1).toSet := by
+      dsimp [Plane3.toSet, H_four_twelve, zPlane]; rw [inner_e2Vec_ptXYZ]
+    have hmem' : ptXYZ 0 0 1 ∈ (H_four_twelve 0).toSet := hij ▸ hmem
+    dsimp [Plane3.toSet, H_four_twelve, zPlane] at hmem'
+    rw [inner_e2Vec_ptXYZ] at hmem'; linarith
+  · rfl
+  · exfalso
+    change (H_four_twelve 1).toSet = (H_four_twelve 2).toSet at hij
+    have hmem : ptXYZ 0 0 0 ∈ (H_four_twelve 2).toSet := by
+      dsimp [Plane3.toSet, H_four_twelve, plane_x0]; rw [inner_v0_ptXYZ]
+    have hmem' : ptXYZ 0 0 0 ∈ (H_four_twelve 1).toSet := hij.symm ▸ hmem
+    dsimp [Plane3.toSet, H_four_twelve, zPlane] at hmem'
+    rw [inner_e2Vec_ptXYZ] at hmem'; linarith
+  · exfalso
+    change (H_four_twelve 1).toSet = (H_four_twelve 3).toSet at hij
+    have hmem : ptXYZ 0 0 0 ∈ (H_four_twelve 3).toSet := by
+      dsimp [Plane3.toSet, H_four_twelve, plane_y0]; rw [inner_v1_ptXYZ]
+    have hmem' : ptXYZ 0 0 0 ∈ (H_four_twelve 1).toSet := hij.symm ▸ hmem
+    dsimp [Plane3.toSet, H_four_twelve, zPlane] at hmem'
+    rw [inner_e2Vec_ptXYZ] at hmem'; linarith
+  · exfalso
+    change (H_four_twelve 2).toSet = (H_four_twelve 0).toSet at hij
+    have hmem : ptXYZ 0 0 1 ∈ (H_four_twelve 2).toSet := by
+      dsimp [Plane3.toSet, H_four_twelve, plane_x0]; rw [inner_v0_ptXYZ]
+    have hmem' : ptXYZ 0 0 1 ∈ (H_four_twelve 0).toSet := hij ▸ hmem
+    dsimp [Plane3.toSet, H_four_twelve, zPlane] at hmem'
+    rw [inner_e2Vec_ptXYZ] at hmem'; linarith
+  · exfalso
+    change (H_four_twelve 2).toSet = (H_four_twelve 1).toSet at hij
+    have hmem : ptXYZ 0 0 0 ∈ (H_four_twelve 2).toSet := by
+      dsimp [Plane3.toSet, H_four_twelve, plane_x0]; rw [inner_v0_ptXYZ]
+    have hmem' : ptXYZ 0 0 0 ∈ (H_four_twelve 1).toSet := hij ▸ hmem
+    dsimp [Plane3.toSet, H_four_twelve, zPlane] at hmem'
+    rw [inner_e2Vec_ptXYZ] at hmem'; linarith
+  · rfl
+  · exfalso
+    change (H_four_twelve 2).toSet = (H_four_twelve 3).toSet at hij
+    have hmem : ptXYZ 0 1 0 ∈ (H_four_twelve 2).toSet := by
+      dsimp [Plane3.toSet, H_four_twelve, plane_x0]; rw [inner_v0_ptXYZ]
+    have hmem' : ptXYZ 0 1 0 ∈ (H_four_twelve 3).toSet := hij ▸ hmem
+    dsimp [Plane3.toSet, H_four_twelve, plane_y0] at hmem'
+    rw [inner_v1_ptXYZ] at hmem'; linarith
+  · exfalso
+    change (H_four_twelve 3).toSet = (H_four_twelve 0).toSet at hij
+    have hmem : ptXYZ 0 0 1 ∈ (H_four_twelve 3).toSet := by
+      dsimp [Plane3.toSet, H_four_twelve, plane_y0]; rw [inner_v1_ptXYZ]
+    have hmem' : ptXYZ 0 0 1 ∈ (H_four_twelve 0).toSet := hij ▸ hmem
+    dsimp [Plane3.toSet, H_four_twelve, zPlane] at hmem'
+    rw [inner_e2Vec_ptXYZ] at hmem'; linarith
+  · exfalso
+    change (H_four_twelve 3).toSet = (H_four_twelve 1).toSet at hij
+    have hmem : ptXYZ 0 0 0 ∈ (H_four_twelve 3).toSet := by
+      dsimp [Plane3.toSet, H_four_twelve, plane_y0]; rw [inner_v1_ptXYZ]
+    have hmem' : ptXYZ 0 0 0 ∈ (H_four_twelve 1).toSet := hij ▸ hmem
+    dsimp [Plane3.toSet, H_four_twelve, zPlane] at hmem'
+    rw [inner_e2Vec_ptXYZ] at hmem'; linarith
+  · exfalso
+    change (H_four_twelve 3).toSet = (H_four_twelve 2).toSet at hij
+    have hmem : ptXYZ 0 1 0 ∈ (H_four_twelve 2).toSet := by
+      dsimp [Plane3.toSet, H_four_twelve, plane_x0]; rw [inner_v0_ptXYZ]
+    have hmem' : ptXYZ 0 1 0 ∈ (H_four_twelve 3).toSet := hij.symm ▸ hmem
+    dsimp [Plane3.toSet, H_four_twelve, plane_y0] at hmem'
+    rw [inner_v1_ptXYZ] at hmem'; linarith
+  · rfl
+
+lemma convexSpaceRegion_four_twelve_FT_empty (bx by_ : Bool) :
+    ¬ (convexSpaceRegion 4 H_four_twelve ![(false : Bool), true, bx, by_]).Nonempty := by
+  rintro ⟨p, hp⟩
+  have h0 := hp 0
+  have h1 := hp 1
+  dsimp [convexSpaceRegion, H_four_twelve, zPlane] at h0 h1
+  rw [inner_e2Vec] at h0 h1
+  linarith
+
+lemma convexSpaceRegion_four_twelve_nonempty (bz1 bz2 bx by_ : Bool)
+    (h_not : ¬ (bz1 = false ∧ bz2 = true)) :
+    (convexSpaceRegion 4 H_four_twelve ![bz1, bz2, bx, by_]).Nonempty := by
+  have hz : ∃ z : ℝ, (if bz1 then z > 0 else z < 0) ∧ (if bz2 then z > 1 else z < 1) := by
+    cases bz1 <;> cases bz2
+    · use -1; simp
+    · contradiction
+    · use (1/2 : ℝ); simp; norm_num
+    · use 2; simp
+  have hx : ∃ x : ℝ, (if bx then x > 0 else x < 0) := by
+    cases bx
+    · use -1; simp
+    · use 1; simp
+  have hy : ∃ y : ℝ, (if by_ then y > 0 else y < 0) := by
+    cases by_
+    · use -1; simp
+    · use 1; simp
+  rcases hz with ⟨z, hz1, hz2⟩
+  rcases hx with ⟨x, hx⟩
+  rcases hy with ⟨y, hy⟩
+  use ptXYZ x y z
+  intro i; fin_cases i
+  · dsimp [convexSpaceRegion, H_four_twelve, zPlane]; rw [inner_e2Vec_ptXYZ]
+    cases bz1 <;> simpa using hz1
+  · dsimp [convexSpaceRegion, H_four_twelve, zPlane]; rw [inner_e2Vec_ptXYZ]
+    cases bz2 <;> simpa using hz2
+  · dsimp [convexSpaceRegion, H_four_twelve, plane_x0]; rw [inner_v0_ptXYZ]
+    cases bx <;> simpa using hx
+  · dsimp [convexSpaceRegion, H_four_twelve, plane_y0]; rw [inner_v1_ptXYZ]
+    cases by_ <;> simpa using hy
+
+lemma spaceRegionsCount_four_twelve_eq_twelve :
+    spaceRegionsCount 4 H_four_twelve = 12 := by
+  rw [spaceRegionsCount_eq_card_nonempty_convexSpaceRegion]
+  have hs : (Finset.filter (fun σ =>
+      (convexSpaceRegion 4 H_four_twelve σ).Nonempty) Finset.univ) =
+      {![(false : Bool), false, false, false],
+       ![(false : Bool), false, false, true],
+       ![(false : Bool), false, true, false],
+       ![(false : Bool), false, true, true],
+       ![(true : Bool), false, false, false],
+       ![(true : Bool), false, false, true],
+       ![(true : Bool), false, true, false],
+       ![(true : Bool), false, true, true],
+       ![(true : Bool), true, false, false],
+       ![(true : Bool), true, false, true],
+       ![(true : Bool), true, true, false],
+       ![(true : Bool), true, true, true]} := by
+    ext σ
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and,
+      Finset.mem_insert, Finset.mem_singleton]
+    constructor
+    · intro hne
+      have h0 : σ 0 = false ∨ σ 0 = true := by cases σ 0 <;> simp
+      have h1 : σ 1 = false ∨ σ 1 = true := by cases σ 1 <;> simp
+      have h2 : σ 2 = false ∨ σ 2 = true := by cases σ 2 <;> simp
+      have h3 : σ 3 = false ∨ σ 3 = true := by cases σ 3 <;> simp
+      rcases h0 with h0 | h0 <;> rcases h1 with h1 | h1 <;>
+        rcases h2 with h2 | h2 <;> rcases h3 with h3 | h3
+      · left; ext i; fin_cases i <;> assumption
+      · right; left; ext i; fin_cases i <;> assumption
+      · right; right; left; ext i; fin_cases i <;> assumption
+      · right; right; right; left; ext i; fin_cases i <;> assumption
+      · exfalso
+        have h_eq : σ = ![(false : Bool), true, false, false] := by
+          ext i; fin_cases i <;> assumption
+        subst h_eq
+        exact (convexSpaceRegion_four_twelve_FT_empty false false hne).elim
+      · exfalso
+        have h_eq : σ = ![(false : Bool), true, false, true] := by
+          ext i; fin_cases i <;> assumption
+        subst h_eq
+        exact (convexSpaceRegion_four_twelve_FT_empty false true hne).elim
+      · exfalso
+        have h_eq : σ = ![(false : Bool), true, true, false] := by
+          ext i; fin_cases i <;> assumption
+        subst h_eq
+        exact (convexSpaceRegion_four_twelve_FT_empty true false hne).elim
+      · exfalso
+        have h_eq : σ = ![(false : Bool), true, true, true] := by
+          ext i; fin_cases i <;> assumption
+        subst h_eq
+        exact (convexSpaceRegion_four_twelve_FT_empty true true hne).elim
+      · right; right; right; right; left; ext i; fin_cases i <;> assumption
+      · right; right; right; right; right; left; ext i; fin_cases i <;> assumption
+      · right; right; right; right; right; right; left; ext i; fin_cases i <;> assumption
+      · right; right; right; right; right; right; right; left; ext i; fin_cases i <;> assumption
+      · right; right; right; right; right; right; right; right; left
+        ext i; fin_cases i <;> assumption
+      · right; right; right; right; right; right; right; right; right; left
+        ext i; fin_cases i <;> assumption
+      · right; right; right; right; right; right; right; right; right; right; left
+        ext i; fin_cases i <;> assumption
+      · right; right; right; right; right; right; right; right; right; right; right
+        ext i; fin_cases i <;> assumption
+    · rintro (rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl)
+      · exact convexSpaceRegion_four_twelve_nonempty false false false false (by decide)
+      · exact convexSpaceRegion_four_twelve_nonempty false false false true (by decide)
+      · exact convexSpaceRegion_four_twelve_nonempty false false true false (by decide)
+      · exact convexSpaceRegion_four_twelve_nonempty false false true true (by decide)
+      · exact convexSpaceRegion_four_twelve_nonempty true false false false (by decide)
+      · exact convexSpaceRegion_four_twelve_nonempty true false false true (by decide)
+      · exact convexSpaceRegion_four_twelve_nonempty true false true false (by decide)
+      · exact convexSpaceRegion_four_twelve_nonempty true false true true (by decide)
+      · exact convexSpaceRegion_four_twelve_nonempty true true false false (by decide)
+      · exact convexSpaceRegion_four_twelve_nonempty true true false true (by decide)
+      · exact convexSpaceRegion_four_twelve_nonempty true true true false (by decide)
+      · exact convexSpaceRegion_four_twelve_nonempty true true true true (by decide)
+  rw [hs]
+  decide
+
 /-- 第3位の領域数を達成する相異なる平面配置が存在する。 -/
 lemma exists_planes_thirdSpaceRegions (n : ℕ) (hn : 3 ≤ n) :
     ∃ (H : Fin n → Plane3), DistinctPlanes n H ∧
       spaceRegionsCount n H = thirdSpaceRegionsFormula n := by
-  sorry
+  rcases eq_or_lt_of_le hn with rfl | hn4
+  · refine ⟨H_three_six, distinctPlanes_three_six, ?_⟩
+    have h3 : thirdSpaceRegionsFormula 3 = 6 := space_regions_n_three.2.2
+    rw [h3, spaceRegionsCount_three_six_eq_six]
+  · rcases eq_or_lt_of_le (by omega : 4 ≤ n) with rfl | hn5
+    · refine ⟨H_four_twelve, distinctPlanes_four_twelve, ?_⟩
+      have h4 : thirdSpaceRegionsFormula 4 = 12 := space_regions_n_four.2.2
+      rw [h4, spaceRegionsCount_four_twelve_eq_twelve]
+    · sorry
 
 /-- 【第4問 (3) の幾何学的解答】
-n ≥ 3 のとき、第2位未満の任意の配置の領域数は thirdSpaceRegionsFormula n 以下であり、かつ達成可能である。
+n ≥ 3 のとき、第2位未満の任意の配置の領域数は
+thirdSpaceRegionsFormula n 以下であり、かつ達成可能である。
 特に n = 4 のとき、領域数が 13 となる配置は存在せず、次は 12 となる。 -/
 theorem problem_4_3_geometric_proof (n : ℕ) (hn : 3 ≤ n) :
     (∀ (H : Fin n → Plane3), DistinctPlanes n H →
