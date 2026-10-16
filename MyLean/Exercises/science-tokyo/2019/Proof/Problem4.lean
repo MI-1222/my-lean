@@ -3535,6 +3535,128 @@ lemma mem_traceLine_iff (n : ℕ) (H : Fin (n + 1) → Plane3) (i : Fin n)
     · intro hq
       linarith [h_id, hq]
 
+/-- 平行で交点をもつ2直線は点集合として一致する。 -/
+lemma line2_eq_of_parallel_and_common_point (L₁ L₂ : Line2)
+    (h_par : parallelLines L₁ L₂) {p : Plane2}
+    (hp₁ : p ∈ L₁.toSet) (hp₂ : p ∈ L₂.toSet) :
+    L₁.toSet = L₂.toSet := by
+  rcases h_par with ⟨c, hc⟩
+  dsimp [Line2.toSet] at hp₁ hp₂ ⊢
+  have hc_ne : c ≠ 0 := by
+    intro hc0
+    apply L₁.normVec_ne_zero
+    rw [hc, hc0, zero_smul]
+  have h_off : L₁.offset = c * L₂.offset := by
+    calc
+      L₁.offset = @inner ℝ Plane2 _ L₁.normVec p := hp₁.symm
+      _ = @inner ℝ Plane2 _ (c • L₂.normVec) p := by rw [hc]
+      _ = c * @inner ℝ Plane2 _ L₂.normVec p := inner_smul_left _ _ _
+      _ = c * L₂.offset := by rw [hp₂]
+  ext x
+  constructor
+  · intro hx
+    dsimp at hx ⊢
+    have h_cx : c * @inner ℝ Plane2 _ L₂.normVec x = c * L₂.offset := by
+      calc
+        c * @inner ℝ Plane2 _ L₂.normVec x =
+            @inner ℝ Plane2 _ (c • L₂.normVec) x := (inner_smul_left _ _ _).symm
+        _ = @inner ℝ Plane2 _ L₁.normVec x := by rw [hc]
+        _ = L₁.offset := hx
+        _ = c * L₂.offset := h_off
+    exact mul_left_cancel₀ hc_ne h_cx
+  · intro hx
+    dsimp at hx ⊢
+    calc
+      @inner ℝ Plane2 _ L₁.normVec x = @inner ℝ Plane2 _ (c • L₂.normVec) x := by rw [hc]
+      _ = c * @inner ℝ Plane2 _ L₂.normVec x := inner_smul_left _ _ _
+      _ = c * L₂.offset := by rw [hx]
+      _ = L₁.offset := h_off.symm
+
+/-- 直線上の任意の点に対し、それと異なる直線上の点が存在する。 -/
+lemma exists_ne_mem_line2 (L : Line2) (p : Plane2) (hp : p ∈ L.toSet) :
+    ∃ p' : Plane2, p' ∈ L.toSet ∧ p' ≠ p := by
+  let u := L.normVec
+  let u0 := WithLp.equiv 2 (Fin 2 → ℝ) u 0
+  let u1 := WithLp.equiv 2 (Fin 2 → ℝ) u 1
+  let v : Plane2 := (WithLp.equiv 2 (Fin 2 → ℝ)).symm fun j =>
+    if j.val = 0 then -u1 else u0
+  have hv_ne : v ≠ 0 := by
+    intro h0
+    have h0_0 := congr_fun (congr_arg (WithLp.equiv 2 (Fin 2 → ℝ)) h0) 0
+    have h0_1 := congr_fun (congr_arg (WithLp.equiv 2 (Fin 2 → ℝ)) h0) 1
+    dsimp [v] at h0_0 h0_1
+    change -u1 = 0 at h0_0
+    change u0 = 0 at h0_1
+    have hu0 : u0 = 0 := h0_1
+    have hu1 : u1 = 0 := by linarith [h0_0]
+    apply L.normVec_ne_zero
+    apply (WithLp.equiv 2 (Fin 2 → ℝ)).injective
+    ext j
+    fin_cases j
+    · exact hu0
+    · exact hu1
+  have h_uv : @inner ℝ Plane2 _ u v = 0 := by
+    rw [plane2_inner_apply]
+    dsimp [v]
+    change u0 * (-u1) + u1 * u0 = 0
+    ring
+  let p' := p + v
+  have hp' : p' ∈ L.toSet := by
+    dsimp [Line2.toSet, p']
+    rw [inner_add_right, hp, h_uv, add_zero]
+  refine ⟨p', hp', ?_⟩
+  intro h_eq
+  have : v = 0 := by
+    calc
+      v = (p + v) - p := by abel
+      _ = p' - p := rfl
+      _ = p - p := by rw [h_eq]
+      _ = 0 := sub_self p
+  exact hv_ne this
+
+/-- 2次元平面パラメータ付け planePt3 は単射である。 -/
+lemma planePt3_injective (H : Plane3) : Function.Injective (planePt3 H) := by
+  intro p₁ p₂ h
+  let d0 := WithLp.equiv 2 (Fin 2 → ℝ) p₁ 0 - WithLp.equiv 2 (Fin 2 → ℝ) p₂ 0
+  let d1 := WithLp.equiv 2 (Fin 2 → ℝ) p₁ 1 - WithLp.equiv 2 (Fin 2 → ℝ) p₂ 1
+  have h_diff : d0 • planeBasis1 H.normVec + d1 • planeBasis2 H.normVec = 0 := by
+    have h_sub : planePt3 H p₁ - planePt3 H p₂ = 0 := sub_eq_zero.mpr h
+    have h_rearr : d0 • planeBasis1 H.normVec + d1 • planeBasis2 H.normVec =
+        (planePt3 H p₁) - (planePt3 H p₂) := by
+      dsimp [planePt3, d0, d1]
+      module
+    rw [h_rearr, h_sub]
+  apply (WithLp.equiv 2 (Fin 2 → ℝ)).injective
+  ext j
+  fin_cases j
+  · -- j = 0
+    have h_inner := congr_arg (fun v => @inner ℝ Space3 _ (planeBasis1 H.normVec) v) h_diff
+    rw [inner_zero_right] at h_inner
+    rw [inner_add_right, inner_smul_right, inner_smul_right] at h_inner
+    have h_e1_e2 : @inner ℝ Space3 _ (planeBasis1 H.normVec) (planeBasis2 H.normVec) = 0 := by
+      rw [real_inner_comm]
+      exact inner_planeBasis2_planeBasis1 H.normVec
+    have h_e1_sq : @inner ℝ Space3 _ (planeBasis1 H.normVec) (planeBasis1 H.normVec) ≠ 0 := by
+      intro h0
+      have he1_ne := planeBasis1_ne_zero H.normVec H.normVec_ne_zero
+      exact he1_ne (inner_self_eq_zero.mp h0)
+    rw [h_e1_e2, mul_zero, add_zero] at h_inner
+    have h_sub : d0 = 0 := (mul_eq_zero.mp h_inner).resolve_right h_e1_sq
+    exact sub_eq_zero.mp h_sub
+  · -- j = 1
+    have h_inner := congr_arg (fun v => @inner ℝ Space3 _ (planeBasis2 H.normVec) v) h_diff
+    rw [inner_zero_right] at h_inner
+    rw [inner_add_right, inner_smul_right, inner_smul_right] at h_inner
+    have h_e2_e1 : @inner ℝ Space3 _ (planeBasis2 H.normVec) (planeBasis1 H.normVec) = 0 :=
+      inner_planeBasis2_planeBasis1 H.normVec
+    have h_e2_sq : @inner ℝ Space3 _ (planeBasis2 H.normVec) (planeBasis2 H.normVec) ≠ 0 := by
+      intro h0
+      have he2_ne := planeBasis2_ne_zero H.normVec H.normVec_ne_zero
+      exact he2_ne (inner_self_eq_zero.mp h0)
+    rw [h_e2_e1, mul_zero, zero_add] at h_inner
+    have h_sub : d1 = 0 := (mul_eq_zero.mp h_inner).resolve_right h_e2_sq
+    exact sub_eq_zero.mp h_sub
+
 /-- 3次元一般位置から2次元一般位置への帰着定理:
 3次元空間で一般の位置にある平面配置 $H$ に対し、
 第 $(n+1)$ 平面上に誘導される交線配置は2次元平面上で一般の位置をなす。
@@ -3543,7 +3665,74 @@ lemma mem_traceLine_iff (n : ℕ) (H : Fin (n + 1) → Plane3) (i : Fin n)
 lemma generalPositionLines_of_traceLines (n : ℕ) (H : Fin (n + 1) → Plane3)
     (hgen : GeneralPositionPlanes (n + 1) H) :
     GeneralPositionLines n (traceLinesOnLastPlane n H) := by
-  sorry
+  let last := Fin.last n
+  have h_not_parallel_last : ∀ i : Fin n, ¬ parallelPlanes (H (Fin.castSucc i)) (H last) :=
+    fun i => hgen.1 (Fin.castSucc i) last (Fin.castSucc_ne_last i)
+  constructor
+  · -- どの2直線も平行でない
+    intro i j hij h_par
+    have hij' : Fin.castSucc i ≠ Fin.castSucc j := fun h => hij (Fin.castSucc_inj.mp h)
+    have hilast : Fin.castSucc i ≠ last := Fin.castSucc_ne_last i
+    have hjlast : Fin.castSucc j ≠ last := Fin.castSucc_ne_last j
+    rcases hgen.2.1 (Fin.castSucc i) (Fin.castSucc j) last hij' hjlast hilast with ⟨q, hq_inter⟩
+    have hq_in : q ∈ (H (Fin.castSucc i)).toSet ∩
+        (H (Fin.castSucc j)).toSet ∩ (H last).toSet := by
+      rw [hq_inter]
+      exact Set.mem_singleton q
+    rcases hq_in with ⟨⟨hqi, hqj⟩, hqlast⟩
+    rcases exists_p_planePt3_eq (H last) hqlast with ⟨p, hp_q⟩
+    have hpi : p ∈ (traceLinesOnLastPlane n H i).toSet := by
+      rw [mem_traceLine_iff n H i (h_not_parallel_last i) p, hp_q]
+      exact hqi
+    have hpj : p ∈ (traceLinesOnLastPlane n H j).toSet := by
+      rw [mem_traceLine_iff n H j (h_not_parallel_last j) p, hp_q]
+      exact hqj
+    have h_line_eq := line2_eq_of_parallel_and_common_point
+      (traceLinesOnLastPlane n H i) (traceLinesOnLastPlane n H j) h_par hpi hpj
+    rcases exists_ne_mem_line2 (traceLinesOnLastPlane n H i) p hpi with ⟨p', hp'i, hp'_ne⟩
+    have hp'j : p' ∈ (traceLinesOnLastPlane n H j).toSet := by
+      rw [← h_line_eq]
+      exact hp'i
+    let q' := planePt3 (H last) p'
+    have hq'last : q' ∈ (H last).toSet := planePt3_mem_plane (H last) p'
+    have hq'i : q' ∈ (H (Fin.castSucc i)).toSet := by
+      rw [← mem_traceLine_iff n H i (h_not_parallel_last i) p']
+      exact hp'i
+    have hq'j : q' ∈ (H (Fin.castSucc j)).toSet := by
+      rw [← mem_traceLine_iff n H j (h_not_parallel_last j) p']
+      exact hp'j
+    have hq'_in : q' ∈ (H (Fin.castSucc i)).toSet ∩
+        (H (Fin.castSucc j)).toSet ∩ (H last).toSet :=
+      ⟨⟨hq'i, hq'j⟩, hq'last⟩
+    rw [hq_inter] at hq'_in
+    have hq'_eq_q : q' = q := Set.mem_singleton_iff.mp hq'_in
+    rw [← hp_q] at hq'_eq_q
+    have hp'_eq_p := planePt3_injective (H last) hq'_eq_q
+    exact hp'_ne hp'_eq_p
+  · -- どの3直線も1点で交わらない
+    intro i j l hij hjl hil
+    apply Set.eq_empty_of_subset_empty
+    intro p hp
+    rcases hp with ⟨⟨hpi, hpj⟩, hpl⟩
+    have hqi := (mem_traceLine_iff n H i (h_not_parallel_last i) p).mp hpi
+    have hqj := (mem_traceLine_iff n H j (h_not_parallel_last j) p).mp hpj
+    have hql := (mem_traceLine_iff n H l (h_not_parallel_last l) p).mp hpl
+    let q := planePt3 (H last) p
+    have hqlast : q ∈ (H last).toSet := planePt3_mem_plane (H last) p
+    have hq_all : q ∈ (H (Fin.castSucc i)).toSet ∩
+        (H (Fin.castSucc j)).toSet ∩
+        (H (Fin.castSucc l)).toSet ∩
+        (H last).toSet := ⟨⟨⟨hqi, hqj⟩, hql⟩, hqlast⟩
+    have hij' : Fin.castSucc i ≠ Fin.castSucc j := fun h => hij (Fin.castSucc_inj.mp h)
+    have hjl' : Fin.castSucc j ≠ Fin.castSucc l := fun h => hjl (Fin.castSucc_inj.mp h)
+    have hllast : Fin.castSucc l ≠ last := Fin.castSucc_ne_last l
+    have hil' : Fin.castSucc i ≠ Fin.castSucc l := fun h => hil (Fin.castSucc_inj.mp h)
+    have hilast : Fin.castSucc i ≠ last := Fin.castSucc_ne_last i
+    have hjlast : Fin.castSucc j ≠ last := Fin.castSucc_ne_last j
+    have h_empty := hgen.2.2 (Fin.castSucc i) (Fin.castSucc j) (Fin.castSucc l) last
+      hij' hjl' hllast hil' hilast hjlast
+    rw [h_empty] at hq_all
+    exact hq_all
 
 /-- 一般の位置にある平面配置における領域数の漸化等式:
 一般の位置にある配置に新しい平面を追加したとき、
