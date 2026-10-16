@@ -537,6 +537,18 @@ theorem planeRegionsCount_eq_max_of_general_position (k : ℕ) (L : Fin k → Li
       maxPlaneRegions_succ_step m
     rw [hstep, hih, hsucc]
 
+/-- 平面が0枚のとき、補集合は全空間であり領域数は1である。 -/
+lemma spaceRegionsCount_zero (H : Fin 0 → Plane3) :
+    spaceRegionsCount 0 H = 1 := by
+  dsimp [spaceRegionsCount]
+  have h_univ : {x : Space3 | ∀ i : Fin 0, x ∉ (H i).toSet} = Set.univ := by
+    ext x
+    simp
+  change Nat.card (ConnectedComponents
+    ({x : Space3 | ∀ i : Fin 0, x ∉ (H i).toSet} : Set Space3)) = 1
+  rw [h_univ]
+  exact nat_card_connectedComponents_univ
+
 /-- 3次元平面配置に対する幾何学的漸化不等式:
 $(n+1)$ 枚目の平面 $H_{n}$ を追加したときの空間領域数は、
 既存の $n$ 枚による領域数と、第 $(n+1)$ 平面上に現れる交線配置による領域数の和で抑えられる。
@@ -553,42 +565,15 @@ $H_{n+1}$ 上に現れる各平面領域は、既存の空間領域の内部を�
 新しく形成された平面領域1つにつき、空間全体の領域数が1つ増加する。
 
 【漸化式による導出と評価】
-空間領域数を $T_n$、新しい平面上の領域数を $U_{n}$ とすると、漸化関係
+空間領域数を $T_n$、新しい平面上の領域数を $U_n$ と置くとき、漸化式
 $$ T_{n+1} = T_n + U_{n} $$
-が成り立つ。一般の位置(どの3平面も共通直線をもたず、交線が一般の位置をなす配置)にあるとき、
-$U_{n}$ は怠けた仕出し屋の数列 $S(n)$ と一致し、最大増加量を与える。
+が成り立つ。一般の位置にあるとき、$U_n$ は数列 $S(n)$ と一致し、最大増加量を与える。
 したがって、増える立体領域の個数は追加された平面上の領域数と一致し、
 一般の配置における増加量は常に $S(n)$ 以下となる。 -/
 lemma spaceRegionsCount_succ_le (n : ℕ) (H : Fin (n + 1) → Plane3) :
-    spaceRegionsCount (n + 1) H ≤ spaceRegionsCount n (H ∘ Fin.castSucc) + maxPlaneRegions n := by
+    spaceRegionsCount (n + 1) H ≤
+      spaceRegionsCount n (H ∘ Fin.castSucc) + maxPlaneRegions n := by
   sorry
-
-/-- 一般の位置にある平面配置における領域数の漸化等式:
-一般の位置にある配置に新しい平面を追加したとき、
-増える立体領域の個数は、その平面上に現れる交線配置の最大平面領域数 $S(n)$ と完全に一致する。 -/
-theorem spaceRegionsCount_succ_eq_of_general_position (n : ℕ) (H : Fin (n + 1) → Plane3)
-    (hgen : GeneralPositionPlanes (n + 1) H) :
-    spaceRegionsCount (n + 1) H = spaceRegionsCount n (H ∘ Fin.castSucc) + maxPlaneRegions n := by
-  sorry
-
-/-- 一般の位置にある平面配置に対する最大値達成定理:
-一般の位置にある平面配置 $H$ では、空間領域数が最大値 $T_{\max}(n)$ に一致する。 -/
-theorem spaceRegionsCount_eq_max_of_general_position (n : ℕ) (H : Fin n → Plane3)
-    (hgen : GeneralPositionPlanes n H) :
-    spaceRegionsCount n H = maxSpaceRegions n := by
-  sorry
-
-/-- 平面が0枚のとき、補集合は全空間であり領域数は1である。 -/
-lemma spaceRegionsCount_zero (H : Fin 0 → Plane3) :
-    spaceRegionsCount 0 H = 1 := by
-  dsimp [spaceRegionsCount]
-  have h_univ : {x : Space3 | ∀ i : Fin 0, x ∉ (H i).toSet} = Set.univ := by
-    ext x
-    simp
-  change Nat.card (ConnectedComponents
-    ({x : Space3 | ∀ i : Fin 0, x ∉ (H i).toSet} : Set Space3)) = 1
-  rw [h_univ]
-  exact nat_card_connectedComponents_univ
 
 /-- 3次元空間における幾何学的領域数の最大値上界定理:
 任意の $n$ 枚の平面配置 $H$ による空間領域数 $T(H)$ は、代数公式 $T_{\max}(n)$ 以下である。
@@ -605,6 +590,79 @@ theorem spaceRegionsCount_le_maxSpaceRegions (n : ℕ) (H : Fin n → Plane3) :
     have hih := ih (H ∘ Fin.castSucc)
     have hsucc := maxSpaceRegions_succ m
     omega
+
+/-! ### 3次元空間配置における一般の位置と誘導交線配置 -/
+
+/-- 3次元一般位置にある平面配置の部分配置もまた一般位置にある。
+`Fin.castSucc` の単射性から直ちに従う。 -/
+lemma GeneralPositionPlanes.castSucc (n : ℕ) (H : Fin (n + 1) → Plane3)
+    (hgen : GeneralPositionPlanes (n + 1) H) :
+    GeneralPositionPlanes n (H ∘ Fin.castSucc) := by
+  refine ⟨?_, ?_, ?_⟩
+  · intro i j hij
+    have hij' : Fin.castSucc i ≠ Fin.castSucc j := fun h => hij (Fin.castSucc_inj.mp h)
+    exact hgen.1 (Fin.castSucc i) (Fin.castSucc j) hij'
+  · intro i j l hij hjl hil
+    have hij' : Fin.castSucc i ≠ Fin.castSucc j := fun h => hij (Fin.castSucc_inj.mp h)
+    have hjl' : Fin.castSucc j ≠ Fin.castSucc l := fun h => hjl (Fin.castSucc_inj.mp h)
+    have hil' : Fin.castSucc i ≠ Fin.castSucc l := fun h => hil (Fin.castSucc_inj.mp h)
+    exact hgen.2.1 (Fin.castSucc i) (Fin.castSucc j) (Fin.castSucc l) hij' hjl' hil'
+  · intro i j l m hij hjl hlm hil him hjm
+    have hij' : Fin.castSucc i ≠ Fin.castSucc j := fun h => hij (Fin.castSucc_inj.mp h)
+    have hjl' : Fin.castSucc j ≠ Fin.castSucc l := fun h => hjl (Fin.castSucc_inj.mp h)
+    have hlm' : Fin.castSucc l ≠ Fin.castSucc m := fun h => hlm (Fin.castSucc_inj.mp h)
+    have hil' : Fin.castSucc i ≠ Fin.castSucc l := fun h => hil (Fin.castSucc_inj.mp h)
+    have him' : Fin.castSucc i ≠ Fin.castSucc m := fun h => him (Fin.castSucc_inj.mp h)
+    have hjm' : Fin.castSucc j ≠ Fin.castSucc m := fun h => hjm (Fin.castSucc_inj.mp h)
+    exact hgen.2.2 (Fin.castSucc i) (Fin.castSucc j) (Fin.castSucc l) (Fin.castSucc m)
+      hij' hjl' hlm' hil' him' hjm'
+
+/-- 第 $(n+1)$ 平面 $H(\mathrm{Fin.last } n)$ と既存の各平面 $H(\mathrm{Fin.castSucc } i)$
+との交わりによって第 $(n+1)$ 平面上に誘導される $n$ 本の交線配置。 -/
+def traceLinesOnLastPlane (n : ℕ) (_H : Fin (n + 1) → Plane3) : Fin n → Line2 :=
+  sorry
+
+/-- 3次元一般位置から2次元一般位置への帰着定理:
+3次元空間で一般の位置にある平面配置 $H$ に対し、
+第 $(n+1)$ 平面上に誘導される交線配置は2次元平面上で一般の位置をなす。
+どの2直線も平行でなく(3平面共線性の否定)、
+どの3直線も1点で交わらない(4平面共点性の否定)。 -/
+lemma generalPositionLines_of_traceLines (n : ℕ) (H : Fin (n + 1) → Plane3)
+    (hgen : GeneralPositionPlanes (n + 1) H) :
+    GeneralPositionLines n (traceLinesOnLastPlane n H) := by
+  sorry
+
+/-- 一般の位置にある平面配置における領域数の漸化等式:
+一般の位置にある配置に新しい平面を追加したとき、
+増える立体領域の個数は、平面上の交線配置が定める最大平面領域数 $S(n)$ に一致する。
+2次元の最大値達成定理 `planeRegionsCount_eq_max_of_general_position` に帰着する。 -/
+theorem spaceRegionsCount_succ_eq_of_general_position (n : ℕ) (H : Fin (n + 1) → Plane3)
+    (hgen : GeneralPositionPlanes (n + 1) H) :
+    spaceRegionsCount (n + 1) H = spaceRegionsCount n (H ∘ Fin.castSucc) + maxPlaneRegions n := by
+  sorry
+
+/-- 一般の位置にある平面配置に対する最大値達成定理:
+一般の位置にある平面配置 $H$ では、空間領域数が最大値 $T_{\max}(n)$ に一致する。
+帰納法、配置の遺伝性、漸化等式、組合せ漸化式 `maxSpaceRegions_succ` により証明される。 -/
+theorem spaceRegionsCount_eq_max_of_general_position (n : ℕ) (H : Fin n → Plane3)
+    (hgen : GeneralPositionPlanes n H) :
+    spaceRegionsCount n H = maxSpaceRegions n := by
+  induction n with
+  | zero =>
+    rw [spaceRegionsCount_zero H]
+    dsimp [maxSpaceRegions]
+    decide
+  | succ m ih =>
+    have hgen_sub : GeneralPositionPlanes m (H ∘ Fin.castSucc) :=
+      GeneralPositionPlanes.castSucc m H hgen
+    have hstep : spaceRegionsCount (m + 1) H =
+        spaceRegionsCount m (H ∘ Fin.castSucc) + maxPlaneRegions m :=
+      spaceRegionsCount_succ_eq_of_general_position m H hgen
+    have hih : spaceRegionsCount m (H ∘ Fin.castSucc) = maxSpaceRegions m :=
+      ih (H ∘ Fin.castSucc) hgen_sub
+    have hsucc : maxSpaceRegions (m + 1) = maxSpaceRegions m + maxPlaneRegions m :=
+      maxSpaceRegions_succ m
+    rw [hstep, hih, hsucc]
 
 /-! ### 本問の主定理 -/
 
