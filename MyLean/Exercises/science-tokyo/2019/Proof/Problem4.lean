@@ -243,6 +243,11 @@ lemma planeRegionsCount_succ_le (k : ℕ) (L : Fin (k + 1) → Line2) :
     planeRegionsCount (k + 1) L ≤ planeRegionsCount k (L ∘ Fin.castSucc) + (k + 1) := by
   sorry
 
+/-- 直線が0本のとき、補集合は平面全体であり領域数は1である。 -/
+lemma planeRegionsCount_zero (L : Fin 0 → Line2) :
+    planeRegionsCount 0 L = 1 := by
+  sorry
+
 /-- 2次元直線配置に対する幾何学的上界補題:
 任意の $k$ 本の直線配置による補集合の連結成分数が
 $S(k) = \binom{k}{0} + \binom{k}{1} + \binom{k}{2}$ 以下であること。
@@ -263,8 +268,9 @@ theorem planeRegionsCount_le_maxPlaneRegions (k : ℕ) (L : Fin k → Line2) :
     planeRegionsCount k L ≤ maxPlaneRegions k := by
   induction k with
   | zero =>
-    -- 直線が0本のとき、補集合は全平面 ℝ² であり連結成分数は1である。
-    sorry
+    rw [planeRegionsCount_zero L]
+    dsimp [maxPlaneRegions]
+    decide
   | succ m ih =>
     have hstep := planeRegionsCount_succ_le m L
     have hih := ih (L ∘ Fin.castSucc)
@@ -319,6 +325,11 @@ theorem spaceRegionsCount_eq_max_of_general_position (n : ℕ) (H : Fin n → Pl
     spaceRegionsCount n H = maxSpaceRegions n := by
   sorry
 
+/-- 平面が0枚のとき、補集合は全空間であり領域数は1である。 -/
+lemma spaceRegionsCount_zero (H : Fin 0 → Plane3) :
+    spaceRegionsCount 0 H = 1 := by
+  sorry
+
 /-- 3次元空間における幾何学的領域数の最大値上界定理:
 任意の $n$ 枚の平面配置 $H$ による空間領域数 $T(H)$ は、代数公式 $T_{\max}(n)$ 以下である。
 証明は平面の枚数 $n$ に関する帰納法と幾何学的漸化不等式による。 -/
@@ -326,8 +337,9 @@ theorem spaceRegionsCount_le_maxSpaceRegions (n : ℕ) (H : Fin n → Plane3) :
     spaceRegionsCount n H ≤ maxSpaceRegions n := by
   induction n with
   | zero =>
-    -- 平面が0枚のとき、補集合は全空間 ℝ³ であり連結成分数は 1 である。
-    sorry
+    rw [spaceRegionsCount_zero H]
+    dsimp [maxSpaceRegions]
+    decide
   | succ m ih =>
     have hstep := spaceRegionsCount_succ_le m H
     have hih := ih (H ∘ Fin.castSucc)
