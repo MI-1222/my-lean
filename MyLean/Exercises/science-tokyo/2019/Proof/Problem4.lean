@@ -437,8 +437,30 @@ lemma splitRegionsCount_le_lineIntervals (k : ℕ) (L : Fin (k + 1) → Line2) :
     splitRegionsCount k L ≤ realIntervalsCount (lineIntersectionParams k L) := by
   sorry
 
+/-- 開半空間の共通部分として定義される領域は凸集合である。
+領域内の2点の任意の真の内分点は、再び同じ領域に属する。 -/
+lemma convex_combination_mem_region {k : ℕ} (L : Fin k → Line2) (σ : SignVector2 k)
+    {p₁ p₂ : Plane2} (hp₁ : p₁ ∈ convexPlaneRegion k L σ) (hp₂ : p₂ ∈ convexPlaneRegion k L σ)
+    {a b : ℝ} (ha : 0 < a) (hb : 0 < b) (hab : a + b = 1) :
+    a • p₁ + b • p₂ ∈ convexPlaneRegion k L σ := by
+  dsimp [convexPlaneRegion] at hp₁ hp₂ ⊢
+  intro i
+  have h1 := hp₁ i
+  have h2 := hp₂ i
+  rw [inner_add_right, inner_smul_right, inner_smul_right]
+  split_ifs at h1 h2 ⊢ with hσ
+  · calc
+      (L i).offset = a * (L i).offset + b * (L i).offset := by
+        rw [← add_mul, hab, one_mul]
+      _ < a * @inner ℝ Plane2 _ (L i).normVec p₁ + b * @inner ℝ Plane2 _ (L i).normVec p₂ := by
+        nlinarith
+  · calc
+      a * @inner ℝ Plane2 _ (L i).normVec p₁ + b * @inner ℝ Plane2 _ (L i).normVec p₂
+        < a * (L i).offset + b * (L i).offset := by nlinarith
+      _ = (L i).offset := by rw [← add_mul, hab, one_mul]
+
 /-- 凸領域が直線と交わらないならば、領域全体が直線の真に片側に含まれる。
-中間値の定理 (連結性) より従う。 -/
+領域内の2点が直線の反対側にあれば、その内分点が直線と交わることから従う。 -/
 lemma region_subset_one_side_of_not_split (k : ℕ) (L : Fin (k + 1) → Line2)
     (σ : SignVector2 k)
     (h_not_split : ¬ isSplitByLine (convexPlaneRegion k (L ∘ Fin.castSucc) σ) (L (Fin.last k))) :
@@ -446,7 +468,86 @@ lemma region_subset_one_side_of_not_split (k : ℕ) (L : Fin (k + 1) → Line2)
       @inner ℝ Plane2 _ (L (Fin.last k)).normVec p < (L (Fin.last k)).offset) ∨
     (∀ p ∈ convexPlaneRegion k (L ∘ Fin.castSucc) σ,
       (L (Fin.last k)).offset < @inner ℝ Plane2 _ (L (Fin.last k)).normVec p) := by
-  sorry
+  by_contra h_both
+  push Not at h_both
+  rcases h_both with ⟨⟨p₁, hp₁, hle₁⟩, ⟨p₂, hp₂, hge₂⟩⟩
+  let u := (L (Fin.last k)).normVec
+  let d := (L (Fin.last k)).offset
+  let v₁ := @inner ℝ Plane2 _ u p₁
+  let v₂ := @inner ℝ Plane2 _ u p₂
+  have hne₁ : v₁ ≠ d := by
+    intro h_eq
+    apply h_not_split
+    refine ⟨p₁, hp₁, ?_⟩
+    dsimp [Line2.toSet, u, d] at h_eq ⊢
+    exact h_eq
+  have hne₂ : v₂ ≠ d := by
+    intro h_eq
+    apply h_not_split
+    refine ⟨p₂, hp₂, ?_⟩
+    dsimp [Line2.toSet, u, d] at h_eq ⊢
+    exact h_eq
+  have hlt₁ : d < v₁ := lt_of_le_of_ne' hle₁ hne₁
+  have hlt₂ : v₂ < d := lt_of_le_of_ne hge₂ hne₂
+  have hv : 0 < v₁ - v₂ := by linarith
+  let a := (d - v₂) / (v₁ - v₂)
+  let b := (v₁ - d) / (v₁ - v₂)
+  have ha : 0 < a := div_pos (by linarith) hv
+  have hb : 0 < b := div_pos (by linarith) hv
+  have hab : a + b = 1 := by
+    dsimp [a, b]
+    calc
+      (d - v₂) / (v₁ - v₂) + (v₁ - d) / (v₁ - v₂)
+        = ((d - v₂) + (v₁ - d)) / (v₁ - v₂) := by rw [← add_div]
+      _ = (v₁ - v₂) / (v₁ - v₂) := by
+        congr 1
+        ring
+      _ = 1 := div_self (ne_of_gt hv)
+  let pt := a • p₁ + b • p₂
+  have hpt_in : pt ∈ convexPlaneRegion k (L ∘ Fin.castSucc) σ :=
+    convex_combination_mem_region (L ∘ Fin.castSucc) σ hp₁ hp₂ ha hb hab
+  have hpt_on : pt ∈ (L (Fin.last k)).toSet := by
+    dsimp [Line2.toSet, pt]
+    rw [inner_add_right, inner_smul_right, inner_smul_right]
+    change a * v₁ + b * v₂ = d
+    dsimp [a, b]
+    calc
+      ((d - v₂) / (v₁ - v₂)) * v₁ + ((v₁ - d) / (v₁ - v₂)) * v₂
+        = ((d - v₂) * v₁ + (v₁ - d) * v₂) / (v₁ - v₂) := by
+        rw [div_mul_eq_mul_div, div_mul_eq_mul_div, ← add_div]
+      _ = (d * (v₁ - v₂)) / (v₁ - v₂) := by
+        congr 1
+        ring
+      _ = d := mul_div_cancel_right₀ d (ne_of_gt hv)
+  apply h_not_split
+  exact ⟨pt, hpt_in, hpt_on⟩
+
+/-- $(k+1)$ 本の直線による領域への所属条件を、
+既存 $k$ 本の領域への所属と最後の直線に関する条件に分解する。 -/
+lemma mem_convexPlaneRegion_succ (k : ℕ) (L : Fin (k + 1) → Line2)
+    (σ : SignVector2 k) (b : Bool) (p : Plane2) :
+    p ∈ convexPlaneRegion (k + 1) L (Fin.snoc σ b) ↔
+      p ∈ convexPlaneRegion k (L ∘ Fin.castSucc) σ ∧
+      (if b then (L (Fin.last k)).offset < @inner ℝ Plane2 _ (L (Fin.last k)).normVec p
+       else @inner ℝ Plane2 _ (L (Fin.last k)).normVec p < (L (Fin.last k)).offset) := by
+  dsimp [convexPlaneRegion]
+  constructor
+  · intro h
+    refine ⟨?_, ?_⟩
+    · intro i
+      have hi := h (Fin.castSucc i)
+      rw [Fin.snoc_castSucc] at hi
+      exact hi
+    · have hlast := h (Fin.last k)
+      rw [Fin.snoc_last] at hlast
+      exact hlast
+  · rintro ⟨h1, h2⟩ i
+    refine Fin.lastCases ?_ ?_ i
+    · rw [Fin.snoc_last]
+      exact h2
+    · intro j
+      rw [Fin.snoc_castSucc]
+      exact h1 j
 
 open Classical in
 /-- 未切断の領域から派生する有効な $(k+1)$ 符号ベクトルは高々1つである。 -/
@@ -455,7 +556,38 @@ lemma fiber_card_le_one_of_not_split (k : ℕ) (L : Fin (k + 1) → Line2)
     (h_not_split : ¬ isSplitByLine (convexPlaneRegion k (L ∘ Fin.castSucc) σ) (L (Fin.last k))) :
     (Finset.filter (fun b : Bool =>
       (convexPlaneRegion (k + 1) L (Fin.snoc σ b)).Nonempty) Finset.univ).card ≤ 1 := by
-  sorry
+  have h_cases := region_subset_one_side_of_not_split k L σ h_not_split
+  by_contra h_gt
+  push Not at h_gt
+  have h_eq : (Finset.filter (fun b : Bool =>
+      (convexPlaneRegion (k + 1) L (Fin.snoc σ b)).Nonempty) Finset.univ) = Finset.univ := by
+    apply Finset.eq_univ_of_card
+    have h_le : (Finset.filter (fun b : Bool =>
+      (convexPlaneRegion (k + 1) L (Fin.snoc σ b)).Nonempty) Finset.univ).card ≤ 2 := by
+      calc
+        (Finset.filter (fun b : Bool =>
+          (convexPlaneRegion (k + 1) L (Fin.snoc σ b)).Nonempty) Finset.univ).card
+          ≤ (Finset.univ : Finset Bool).card := Finset.card_filter_le _ _
+        _ = 2 := Fintype.card_bool
+    rw [Fintype.card_bool]
+    omega
+  have h_false_in : false ∈ Finset.filter (fun b : Bool =>
+      (convexPlaneRegion (k + 1) L (Fin.snoc σ b)).Nonempty) Finset.univ := by
+    rw [h_eq]; exact Finset.mem_univ false
+  have h_true_in : true ∈ Finset.filter (fun b : Bool =>
+      (convexPlaneRegion (k + 1) L (Fin.snoc σ b)).Nonempty) Finset.univ := by
+    rw [h_eq]; exact Finset.mem_univ true
+  simp only [Finset.mem_filter, Finset.mem_univ, true_and] at h_false_in h_true_in
+  rcases h_false_in with ⟨pF, hpF⟩
+  rcases h_true_in with ⟨pT, hpT⟩
+  rw [mem_convexPlaneRegion_succ] at hpF hpT
+  rcases h_cases with h_all_lt | h_all_gt
+  · have hpT_lt := h_all_lt pT hpT.1
+    dsimp at hpT
+    linarith
+  · have hpF_gt := h_all_gt pF hpF.1
+    dsimp at hpF
+    linarith
 
 open Classical in
 /-- 切断された領域から派生する有効な $(k+1)$ 符号ベクトルは高々2つ (Bool の全濃度) である。 -/
