@@ -8,6 +8,8 @@ import Mathlib.Topology.Order.IntermediateValue
 import Mathlib.SetTheory.Cardinal.Finite
 import Mathlib.Algebra.Polynomial.Roots
 import Mathlib.LinearAlgebra.Vandermonde
+import Mathlib.Tactic.ComputeDegree
+import Mathlib.Basic.Real.Basic
 import MyLean.Common
 import MyLean.Exercises.«science-tokyo».«2019».Statement
 
@@ -21,7 +23,7 @@ $$ T_{\max}(n) = \sum_{k=0}^3 \binom{n}{k} = \frac{n^3 + 5n + 6}{6} $$
 
 namespace MyLean.Exercises.«science-tokyo».«2019»
 
-open Set
+open Set Polynomial
 
 /-! ### 平面分割・空間分割の漸化式補題 -/
 
@@ -774,6 +776,21 @@ def momentPlane (t : ℝ) : Plane3 where
   normVec_ne_zero := momentVec_ne_zero t
   offset := t ^ 3
 
+/-- モーメントベクトルと空間内の点の内積の展開表示。 -/
+lemma inner_momentVec (t : ℝ) (p : Space3) :
+    @inner ℝ Space3 _ (momentVec t) p = p 0 + t * p 1 + t ^ 2 * p 2 := by
+  have h := PiLp.inner_apply (𝕜 := ℝ) (x := momentVec t) (y := p)
+  rw [h, Fin.sum_univ_three]
+  simp only [Real.inner_apply]
+  change (1 : ℝ) * p 0 + t * p 1 + t ^ 2 * p 2 = p 0 + t * p 1 + t ^ 2 * p 2
+  ring
+
+/-- 点がモーメント平面に属するための必要十分条件。 -/
+lemma mem_momentPlane (t : ℝ) (p : Space3) :
+    p ∈ (momentPlane t).toSet ↔ p 0 + t * p 1 + t ^ 2 * p 2 = t ^ 3 := by
+  dsimp [Plane3.toSet, momentPlane]
+  rw [inner_momentVec]
+
 set_option linter.flexible false in
 /-- パラメータが異なれば、モーメント平面は平行でない。
 法線ベクトルの第0成分からスカラー倍係数が $1$ に定まり、第1成分からパラメータの一致が導かれる。 -/
@@ -789,12 +806,91 @@ lemma not_parallel_momentPlanes {t₁ t₂ : ℝ} (hne : t₁ ≠ t₂) :
   simp at hc1
   exact hne hc1
 
+/-- 解と係数の関係より定まる3平面の交点の陽的表示。 -/
+def explicitIntersection (t₁ t₂ t₃ : ℝ) : Space3 :=
+  (WithLp.equiv 2 (Fin 3 → ℝ)).symm
+    ![t₁ * t₂ * t₃, -(t₁ * t₂ + t₂ * t₃ + t₃ * t₁), t₁ + t₂ + t₃]
+
 /-- 相異なる3つのモーメント平面は、解と係数の関係から定まる唯一の交点を持つ。 -/
 lemma intersection_three_momentPlanes {t₁ t₂ t₃ : ℝ}
     (h12 : t₁ ≠ t₂) (h23 : t₂ ≠ t₃) (h13 : t₁ ≠ t₃) :
     ∃ p : Space3,
       (momentPlane t₁).toSet ∩ (momentPlane t₂).toSet ∩ (momentPlane t₃).toSet = {p} := by
-  sorry
+  let p := explicitIntersection t₁ t₂ t₃
+  use p
+  ext q
+  simp only [Set.mem_inter_iff, Set.mem_singleton_iff, mem_momentPlane]
+  constructor
+  · rintro ⟨⟨h1, h2⟩, h3⟩
+    have hp1 : p 0 + t₁ * p 1 + t₁ ^ 2 * p 2 = t₁ ^ 3 := by
+      dsimp [p, explicitIntersection]
+      ring
+    have hp2 : p 0 + t₂ * p 1 + t₂ ^ 2 * p 2 = t₂ ^ 3 := by
+      dsimp [p, explicitIntersection]
+      ring
+    have hp3 : p 0 + t₃ * p 1 + t₃ ^ 2 * p 2 = t₃ ^ 3 := by
+      dsimp [p, explicitIntersection]
+      ring
+    let a := q 2 - p 2
+    let b := q 1 - p 1
+    let c := q 0 - p 0
+    let Q : ℝ[X] := C a * X ^ 2 + C b * X + C c
+    have hroot (t : ℝ) (hq : q 0 + t * q 1 + t ^ 2 * q 2 = t ^ 3)
+        (hp : p 0 + t * p 1 + t ^ 2 * p 2 = t ^ 3) : Q.IsRoot t := by
+      dsimp [Q, IsRoot]
+      simp only [eval_add, eval_mul, eval_C, eval_pow, eval_X]
+      dsimp [a, b, c]
+      linear_combination hq - hp
+    have hr1 : Q.IsRoot t₁ := hroot t₁ h1 hp1
+    have hr2 : Q.IsRoot t₂ := hroot t₂ h2 hp2
+    have hr3 : Q.IsRoot t₃ := hroot t₃ h3 hp3
+    have hQ_zero : Q = 0 := by
+      by_contra hQ_ne
+      have hdeg : Q.natDegree ≤ 2 := by
+        dsimp [Q]
+        compute_degree!
+      let S : Finset ℝ := {t₁, t₂, t₃}
+      have hS_card : S.card = 3 := by
+        dsimp [S]
+        rw [Finset.card_insert_of_notMem, Finset.card_insert_of_notMem, Finset.card_singleton]
+        · intro h
+          rw [Finset.mem_singleton] at h
+          exact h23 h
+        · intro h
+          rw [Finset.mem_insert, Finset.mem_singleton] at h
+          rcases h with rfl | rfl
+          · exact h12 rfl
+          · exact h13 rfl
+      have hS_sub : S ⊆ Q.roots.toFinset := by
+        intro t ht
+        dsimp [S] at ht
+        simp only [Finset.mem_insert, Finset.mem_singleton] at ht
+        rcases ht with rfl | rfl | rfl
+        · rw [Multiset.mem_toFinset, mem_roots']; exact ⟨hQ_ne, hr1⟩
+        · rw [Multiset.mem_toFinset, mem_roots']; exact ⟨hQ_ne, hr2⟩
+        · rw [Multiset.mem_toFinset, mem_roots']; exact ⟨hQ_ne, hr3⟩
+      have hle : S.card ≤ Q.roots.toFinset.card := Finset.card_le_card hS_sub
+      have hcard_roots : Q.roots.toFinset.card ≤ Q.roots.card := Multiset.toFinset_card_le Q.roots
+      have hdeg_bound : Q.roots.card ≤ Q.natDegree := card_roots' Q
+      omega
+    have hQ_zero' : (C a * X ^ 2 + C b * X + C c : ℝ[X]) = 0 := hQ_zero
+    have hc0 : (C a * X ^ 2 + C b * X + C c : ℝ[X]).coeff 0 = 0 := by rw [hQ_zero', coeff_zero]
+    have hc1 : (C a * X ^ 2 + C b * X + C c : ℝ[X]).coeff 1 = 0 := by rw [hQ_zero', coeff_zero]
+    have hc2 : (C a * X ^ 2 + C b * X + C c : ℝ[X]).coeff 2 = 0 := by rw [hQ_zero', coeff_zero]
+    simp at hc0 hc1 hc2
+    have ha : q 2 = p 2 := by linarith
+    have hb : q 1 = p 1 := by linarith
+    have hc : q 0 = p 0 := by linarith
+    ext i
+    fin_cases i
+    · exact hc
+    · exact hb
+    · exact ha
+  · rintro rfl
+    refine ⟨⟨?_, ?_⟩, ?_⟩
+    · dsimp [p, explicitIntersection]; ring
+    · dsimp [p, explicitIntersection]; ring
+    · dsimp [p, explicitIntersection]; ring
 
 /-- 相異なる4つのモーメント平面の共通部分は空である。
 もし点 $p$ が属せば、3次多項式 $t^3 - z t^2 - y t - x$ が4つの相異なる根を持つことになり矛盾する。 -/
@@ -803,7 +899,59 @@ lemma intersection_four_momentPlanes_empty {t₁ t₂ t₃ t₄ : ℝ}
     (h13 : t₁ ≠ t₃) (h14 : t₁ ≠ t₄) (h24 : t₂ ≠ t₄) :
     (momentPlane t₁).toSet ∩ (momentPlane t₂).toSet ∩
     (momentPlane t₃).toSet ∩ (momentPlane t₄).toSet = ∅ := by
-  sorry
+  ext p
+  simp only [Set.mem_inter_iff, mem_momentPlane, Set.mem_empty_iff_false, iff_false]
+  rintro ⟨⟨⟨h1, h2⟩, h3⟩, h4⟩
+  let P : ℝ[X] := X ^ 3 - C (p 2) * X ^ 2 - C (p 1) * X - C (p 0)
+  have hroot (t : ℝ) (h : p 0 + t * p 1 + t ^ 2 * p 2 = t ^ 3) : P.IsRoot t := by
+    dsimp [P, IsRoot]
+    simp only [eval_sub, eval_pow, eval_X, eval_mul, eval_C]
+    linear_combination -h
+  have hr1 : P.IsRoot t₁ := hroot t₁ h1
+  have hr2 : P.IsRoot t₂ := hroot t₂ h2
+  have hr3 : P.IsRoot t₃ := hroot t₃ h3
+  have hr4 : P.IsRoot t₄ := hroot t₄ h4
+  have hP_ne : P ≠ 0 := by
+    intro hzero
+    have hzero' : (X ^ 3 - C (p 2) * X ^ 2 - C (p 1) * X - C (p 0) : ℝ[X]) = 0 := hzero
+    have hc : (X ^ 3 - C (p 2) * X ^ 2 - C (p 1) * X - C (p 0) : ℝ[X]).coeff 3 = 0 := by
+      rw [hzero', coeff_zero]
+    simp [coeff_sub, coeff_X_pow] at hc
+  have hdeg : P.natDegree ≤ 3 := by
+    dsimp [P]
+    compute_degree!
+  let S : Finset ℝ := {t₁, t₂, t₃, t₄}
+  have hS_card : S.card = 4 := by
+    dsimp [S]
+    rw [Finset.card_insert_of_notMem, Finset.card_insert_of_notMem,
+        Finset.card_insert_of_notMem, Finset.card_singleton]
+    · intro h
+      rw [Finset.mem_singleton] at h
+      exact h34 h
+    · intro h
+      rw [Finset.mem_insert, Finset.mem_singleton] at h
+      rcases h with rfl | rfl
+      · exact h23 rfl
+      · exact h24 rfl
+    · intro h
+      rw [Finset.mem_insert, Finset.mem_insert, Finset.mem_singleton] at h
+      rcases h with rfl | rfl | rfl
+      · exact h12 rfl
+      · exact h13 rfl
+      · exact h14 rfl
+  have hS_sub : S ⊆ P.roots.toFinset := by
+    intro t ht
+    dsimp [S] at ht
+    simp only [Finset.mem_insert, Finset.mem_singleton] at ht
+    rcases ht with rfl | rfl | rfl | rfl
+    · rw [Multiset.mem_toFinset, mem_roots']; exact ⟨hP_ne, hr1⟩
+    · rw [Multiset.mem_toFinset, mem_roots']; exact ⟨hP_ne, hr2⟩
+    · rw [Multiset.mem_toFinset, mem_roots']; exact ⟨hP_ne, hr3⟩
+    · rw [Multiset.mem_toFinset, mem_roots']; exact ⟨hP_ne, hr4⟩
+  have hle : S.card ≤ P.roots.toFinset.card := Finset.card_le_card hS_sub
+  have hcard_roots : P.roots.toFinset.card ≤ P.roots.card := Multiset.toFinset_card_le P.roots
+  have hdeg_bound : P.roots.card ≤ P.natDegree := card_roots' P
+  omega
 
 /-- 任意の自然数 $n$ に対し、一般の位置にある平面配置が存在する。 -/
 theorem exists_general_position_planes (n : ℕ) :
