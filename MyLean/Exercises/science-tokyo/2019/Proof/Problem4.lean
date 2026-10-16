@@ -402,6 +402,26 @@ lemma disjoint_intersections_on_line (k : ℕ) (L : Fin (k + 1) → Line2)
   refine Disjoint.mono inf_le_left inf_le_left ?_
   exact disjoint_convexPlaneRegion k (L ∘ Fin.castSucc) σ₁ σ₂ hne
 
+/-- 切断された既存領域の開区間は、既存直線との交点集合と交わらない。
+開半空間の境界上の点では内積がoffsetに一致するため、領域内部の不等式と矛盾する。 -/
+lemma intersection_disjoint_intersectionPoints (k : ℕ) (L : Fin (k + 1) → Line2)
+    (σ : SignVector2 k) :
+    Disjoint (convexPlaneRegion k (L ∘ Fin.castSucc) σ ∩ (L (Fin.last k)).toSet)
+             (⋃ i : Fin k, (L (Fin.castSucc i)).toSet) := by
+  rw [Set.disjoint_left]
+  rintro p ⟨hp_reg, -⟩ hp_lines
+  simp only [Set.mem_iUnion] at hp_lines
+  rcases hp_lines with ⟨i, hi⟩
+  have h_bound := hp_reg i
+  dsimp [Line2.toSet] at hi
+  cases h_bool : σ i
+  · rw [h_bool] at h_bound
+    dsimp at h_bound
+    linarith
+  · rw [h_bool] at h_bound
+    dsimp at h_bound
+    linarith
+
 open Classical in
 /-- 第 $(k+1)$ 直線によって2分割される既存領域の個数。
 切断条件を満たす符号ベクトルの個数として定義される。 -/
@@ -414,6 +434,37 @@ noncomputable def splitRegionsCount (k : ℕ) (L : Fin (k + 1) → Line2) : ℕ 
 lemma splitRegionsCount_le_lineIntervals (k : ℕ) (L : Fin (k + 1) → Line2) :
     splitRegionsCount k L ≤ realIntervalsCount (lineIntersectionParams k L) := by
   sorry
+
+/-- 凸領域が直線と交わらないならば、領域全体が直線の真に片側に含まれる。
+中間値の定理 (連結性) より従う。 -/
+lemma region_subset_one_side_of_not_split (k : ℕ) (L : Fin (k + 1) → Line2)
+    (σ : SignVector2 k)
+    (h_not_split : ¬ isSplitByLine (convexPlaneRegion k (L ∘ Fin.castSucc) σ) (L (Fin.last k))) :
+    (∀ p ∈ convexPlaneRegion k (L ∘ Fin.castSucc) σ,
+      @inner ℝ Plane2 _ (L (Fin.last k)).normVec p < (L (Fin.last k)).offset) ∨
+    (∀ p ∈ convexPlaneRegion k (L ∘ Fin.castSucc) σ,
+      (L (Fin.last k)).offset < @inner ℝ Plane2 _ (L (Fin.last k)).normVec p) := by
+  sorry
+
+open Classical in
+/-- 未切断の領域から派生する有効な $(k+1)$ 符号ベクトルは高々1つである。 -/
+lemma fiber_card_le_one_of_not_split (k : ℕ) (L : Fin (k + 1) → Line2)
+    (σ : SignVector2 k)
+    (h_not_split : ¬ isSplitByLine (convexPlaneRegion k (L ∘ Fin.castSucc) σ) (L (Fin.last k))) :
+    (Finset.filter (fun b : Bool =>
+      (convexPlaneRegion (k + 1) L (Fin.snoc σ b)).Nonempty) Finset.univ).card ≤ 1 := by
+  sorry
+
+open Classical in
+/-- 切断された領域から派生する有効な $(k+1)$ 符号ベクトルは高々2つ (Bool の全濃度) である。 -/
+lemma fiber_card_le_two (k : ℕ) (L : Fin (k + 1) → Line2) (σ : SignVector2 k) :
+    (Finset.filter (fun b : Bool =>
+      (convexPlaneRegion (k + 1) L (Fin.snoc σ b)).Nonempty) Finset.univ).card ≤ 2 := by
+  calc
+    (Finset.filter (fun b : Bool =>
+      (convexPlaneRegion (k + 1) L (Fin.snoc σ b)).Nonempty) Finset.univ).card
+      ≤ (Finset.univ : Finset Bool).card := Finset.card_filter_le _ _
+    _ = 2 := Fintype.card_bool
 
 /-- 平面領域の増加量は、切断された既存領域の個数に一致する(高々等しい)。
 切断されない領域はそのまま残り、切断された各領域はちょうど2つに分かれるため増加量は各1個である。 -/
@@ -686,6 +737,7 @@ def momentPlane (t : ℝ) : Plane3 where
   normVec_ne_zero := momentVec_ne_zero t
   offset := t ^ 3
 
+set_option linter.flexible false in
 /-- パラメータが異なれば、モーメント平面は平行でない。
 法線ベクトルの第0成分からスカラー倍係数が $1$ に定まり、第1成分からパラメータの一致が導かれる。 -/
 lemma not_parallel_momentPlanes {t₁ t₂ : ℝ} (hne : t₁ ≠ t₂) :
