@@ -4968,10 +4968,139 @@ lemma spaceRegionsCount_hybrid (n : ℕ) (hn : 3 ≤ n) :
       rw [← h_form_succ, ← h_form_m, h_max_succ]
     omega
 
+/-- 平面 $x = 0$ と平面 $y = 0$ は平行でない。 -/
+lemma not_parallel_plane_x0_plane_y0 :
+    ¬ parallelPlanes plane_x0 plane_y0 := by
+  rintro ⟨c, hc⟩
+  have hc0 : (WithLp.equiv 2 (Fin 3 → ℝ)) plane_x0.normVec 0 =
+             (WithLp.equiv 2 (Fin 3 → ℝ)) (c • plane_y0.normVec) 0 := by rw [hc]
+  have hc1 : (WithLp.equiv 2 (Fin 3 → ℝ)) plane_x0.normVec 1 =
+             (WithLp.equiv 2 (Fin 3 → ℝ)) (c • plane_y0.normVec) 1 := by rw [hc]
+  simp [plane_x0, plane_y0, v0_vec, v1_vec] at hc0 hc1
+
+/-- 平面 $x = 0$ と平面 x + $y = 1$ は平行でない。 -/
+lemma not_parallel_plane_x0_plane_xy1 :
+    ¬ parallelPlanes plane_x0 plane_xy1 := by
+  rintro ⟨c, hc⟩
+  have hc0 : (WithLp.equiv 2 (Fin 3 → ℝ)) plane_x0.normVec 0 =
+             (WithLp.equiv 2 (Fin 3 → ℝ)) (c • plane_xy1.normVec) 0 := by rw [hc]
+  have hc1 : (WithLp.equiv 2 (Fin 3 → ℝ)) plane_x0.normVec 1 =
+             (WithLp.equiv 2 (Fin 3 → ℝ)) (c • plane_xy1.normVec) 1 := by rw [hc]
+  simp [plane_x0, plane_xy1, v0_vec, v2_vec] at hc0 hc1
+  linarith
+
+/-- 平面 $y = 0$ と平面 $x + y = 1$ は平行でない。 -/
+lemma not_parallel_plane_y0_plane_xy1 :
+    ¬ parallelPlanes plane_y0 plane_xy1 := by
+  rintro ⟨c, hc⟩
+  have hc0 : (WithLp.equiv 2 (Fin 3 → ℝ)) plane_y0.normVec 0 =
+             (WithLp.equiv 2 (Fin 3 → ℝ)) (c • plane_xy1.normVec) 0 := by rw [hc]
+  have hc1 : (WithLp.equiv 2 (Fin 3 → ℝ)) plane_y0.normVec 1 =
+             (WithLp.equiv 2 (Fin 3 → ℝ)) (c • plane_xy1.normVec) 1 := by rw [hc]
+  simp [plane_y0, plane_xy1, v1_vec, v2_vec] at hc0 hc1
+  linarith
+
+set_option linter.flexible false in
+/-- 平面 $x = 0$ とモーメント平面は平行でない。 -/
+lemma not_parallel_plane_x0_momentPlane {t : ℝ} (ht : 1 ≤ t) :
+    ¬ parallelPlanes plane_x0 (momentPlane t) := by
+  rintro ⟨c, hc⟩
+  have hc0 : (WithLp.equiv 2 (Fin 3 → ℝ)) plane_x0.normVec 0 =
+             (WithLp.equiv 2 (Fin 3 → ℝ)) (c • (momentPlane t).normVec) 0 := by rw [hc]
+  have hc2 : (WithLp.equiv 2 (Fin 3 → ℝ)) plane_x0.normVec 2 =
+             (WithLp.equiv 2 (Fin 3 → ℝ)) (c • (momentPlane t).normVec) 2 := by rw [hc]
+  simp [plane_x0, v0_vec, momentPlane, momentVec] at hc0 hc2
+  subst hc0
+  simp at hc2
+  nlinarith
+
+set_option linter.flexible false in
+/-- 平面 $y = 0$ とモーメント平面は平行でない。 -/
+lemma not_parallel_plane_y0_momentPlane {t : ℝ} (_ht : 1 ≤ t) :
+    ¬ parallelPlanes plane_y0 (momentPlane t) := by
+  rintro ⟨c, hc⟩
+  have hc0 : (WithLp.equiv 2 (Fin 3 → ℝ)) plane_y0.normVec 0 =
+             (WithLp.equiv 2 (Fin 3 → ℝ)) (c • (momentPlane t).normVec) 0 := by rw [hc]
+  have hc1 : (WithLp.equiv 2 (Fin 3 → ℝ)) plane_y0.normVec 1 =
+             (WithLp.equiv 2 (Fin 3 → ℝ)) (c • (momentPlane t).normVec) 1 := by rw [hc]
+  simp [plane_y0, v1_vec, momentPlane, momentVec] at hc0 hc1
+  subst hc0
+  simp at hc1
+
+set_option linter.flexible false in
+/-- 平面 $x + y = 1$ とモーメント平面は平行でない。 -/
+lemma not_parallel_plane_xy1_momentPlane {t : ℝ} (_ht : 2 ≤ t) :
+    ¬ parallelPlanes plane_xy1 (momentPlane t) := by
+  rintro ⟨c, hc⟩
+  have hc0 : (WithLp.equiv 2 (Fin 3 → ℝ)) plane_xy1.normVec 0 =
+             (WithLp.equiv 2 (Fin 3 → ℝ)) (c • (momentPlane t).normVec) 0 := by rw [hc]
+  have hc1 : (WithLp.equiv 2 (Fin 3 → ℝ)) plane_xy1.normVec 1 =
+             (WithLp.equiv 2 (Fin 3 → ℝ)) (c • (momentPlane t).normVec) 1 := by rw [hc]
+  simp [plane_xy1, v2_vec, momentPlane, momentVec] at hc0 hc1
+  subst hc0
+  simp at hc1
+  linarith
+
+set_option linter.flexible false in
+/-- ハイブリッド配置の任意の2平面は平行でない。 -/
+lemma not_parallel_hybrid {n : ℕ} (i j : Fin n) (hij : i < j) :
+    ¬ parallelPlanes (H_hybrid n i) (H_hybrid n j) := by
+  have hi_lt : i.val < j.val := hij
+  have h_ne : i.val ≠ j.val := by omega
+  by_cases hi0 : i.val = 0
+  · by_cases hj1 : j.val = 1
+    · dsimp [H_hybrid]
+      simp [hi0, hj1]
+      exact not_parallel_plane_x0_plane_y0
+    · by_cases hj2 : j.val = 2
+      · dsimp [H_hybrid]
+        simp [hi0, hj2]
+        exact not_parallel_plane_x0_plane_xy1
+      · dsimp [H_hybrid]
+        have hj0 : ¬ j.val = 0 := by omega
+        simp [hi0, hj0, hj1, hj2]
+        apply not_parallel_plane_x0_momentPlane
+        exact_mod_cast (by omega : 1 ≤ j.val)
+  · by_cases hi1 : i.val = 1
+    · by_cases hj2 : j.val = 2
+      · dsimp [H_hybrid]
+        simp [hi1, hj2]
+        exact not_parallel_plane_y0_plane_xy1
+      · dsimp [H_hybrid]
+        have hj0 : ¬ j.val = 0 := by omega
+        have hj1 : ¬ j.val = 1 := by omega
+        simp [hi1, hj0, hj1, hj2]
+        apply not_parallel_plane_y0_momentPlane
+        exact_mod_cast (by omega : 1 ≤ j.val)
+    · by_cases hi2 : i.val = 2
+      · dsimp [H_hybrid]
+        have hj0 : ¬ j.val = 0 := by omega
+        have hj1 : ¬ j.val = 1 := by omega
+        have hj2 : ¬ j.val = 2 := by omega
+        simp [hi2, hj0, hj1, hj2]
+        apply not_parallel_plane_xy1_momentPlane
+        exact_mod_cast (by omega : 2 ≤ j.val)
+      · dsimp [H_hybrid]
+        have hj0 : ¬ j.val = 0 := by omega
+        have hj1 : ¬ j.val = 1 := by omega
+        have hj2 : ¬ j.val = 2 := by omega
+        simp [hi0, hi1, hi2, hj0, hj1, hj2]
+        apply not_parallel_momentPlanes
+        exact_mod_cast h_ne
+
 /-- ハイブリッド配置の各平面は相異なる。 -/
 lemma distinctPlanes_hybrid (n : ℕ) :
     DistinctPlanes n (H_hybrid n) := by
-  sorry
+  intro i j hij
+  by_contra h_ne
+  rcases lt_trichotomy i j with h | h | h
+  · have h_not := not_parallel_hybrid i j h
+    have h_par := parallelPlanes_of_toSet_eq (H_hybrid n i) (H_hybrid n j) hij
+    exact h_not h_par
+  · exact h_ne h
+  · have h_not := not_parallel_hybrid j i h
+    have h_par := parallelPlanes_of_toSet_eq (H_hybrid n j) (H_hybrid n i) hij.symm
+    exact h_not h_par
 
 /-- 一般の位置にある n 枚の平面配置に、切断領域数がちょうど S(n) - 1 となる
 新しい平面を追加したとき、得られる (n + 1) 枚の配置の領域数は
