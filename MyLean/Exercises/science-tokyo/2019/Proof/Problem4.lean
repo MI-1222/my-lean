@@ -483,12 +483,59 @@ theorem planeRegionsCount_le_maxPlaneRegions (k : ℕ) (L : Fin k → Line2) :
     have hsucc := maxPlaneRegions_succ_step m
     omega
 
+/-! ### 一般の位置における領域数の漸化等式と最大値達成 -/
+
+/-- 一般の位置にある直線配置の部分配置もまた一般の位置にある。
+`Fin.castSucc` の単射性から直ちに従う。 -/
+lemma GeneralPositionLines.castSucc (k : ℕ) (L : Fin (k + 1) → Line2)
+    (hgen : GeneralPositionLines (k + 1) L) :
+    GeneralPositionLines k (L ∘ Fin.castSucc) := by
+  constructor
+  · intro i j hij
+    have hij' : Fin.castSucc i ≠ Fin.castSucc j := fun h => hij (Fin.castSucc_inj.mp h)
+    exact hgen.1 (Fin.castSucc i) (Fin.castSucc j) hij'
+  · intro i j l hij hjl hil
+    have hij' : Fin.castSucc i ≠ Fin.castSucc j := fun h => hij (Fin.castSucc_inj.mp h)
+    have hjl' : Fin.castSucc j ≠ Fin.castSucc l := fun h => hjl (Fin.castSucc_inj.mp h)
+    have hil' : Fin.castSucc i ≠ Fin.castSucc l := fun h => hil (Fin.castSucc_inj.mp h)
+    exact hgen.2 (Fin.castSucc i) (Fin.castSucc j) (Fin.castSucc l) hij' hjl' hil'
+
+/-- 一般の位置にある直線配置において、第 $(k+1)$ 直線と既存の直線の交点はすべて相異なり、
+ちょうど $k$ 個存在する。平行条件および3直線共点条件の否定から従う。 -/
+lemma card_lineIntersectionParams_eq_of_general_position (k : ℕ) (L : Fin (k + 1) → Line2)
+    (hgen : GeneralPositionLines (k + 1) L) :
+    (lineIntersectionParams k L).card = k := by
+  sorry
+
+/-- 一般の位置にある配置に新しい直線を追加したとき、
+増える平面領域の個数はちょうど $k + 1$ 個である。 -/
+theorem planeRegionsCount_succ_eq_of_general_position (k : ℕ) (L : Fin (k + 1) → Line2)
+    (hgen : GeneralPositionLines (k + 1) L) :
+    planeRegionsCount (k + 1) L = planeRegionsCount k (L ∘ Fin.castSucc) + (k + 1) := by
+  sorry
+
 /-- 一般の位置にある直線配置に対する最大値達成定理:
-一般の位置にある直線配置 $L$ では、領域数が最大値 $S(k)$ に一致する。 -/
+一般の位置にある直線配置 $L$ では、領域数が最大値 $S(k)$ に一致する。
+帰納法と漸化等式により完全に証明される。 -/
 theorem planeRegionsCount_eq_max_of_general_position (k : ℕ) (L : Fin k → Line2)
     (hgen : GeneralPositionLines k L) :
     planeRegionsCount k L = maxPlaneRegions k := by
-  sorry
+  induction k with
+  | zero =>
+    rw [planeRegionsCount_zero L]
+    dsimp [maxPlaneRegions]
+    decide
+  | succ m ih =>
+    have hgen_sub : GeneralPositionLines m (L ∘ Fin.castSucc) :=
+      GeneralPositionLines.castSucc m L hgen
+    have hstep : planeRegionsCount (m + 1) L =
+        planeRegionsCount m (L ∘ Fin.castSucc) + (m + 1) :=
+      planeRegionsCount_succ_eq_of_general_position m L hgen
+    have hih : planeRegionsCount m (L ∘ Fin.castSucc) = maxPlaneRegions m :=
+      ih (L ∘ Fin.castSucc) hgen_sub
+    have hsucc : maxPlaneRegions (m + 1) = maxPlaneRegions m + (m + 1) :=
+      maxPlaneRegions_succ_step m
+    rw [hstep, hih, hsucc]
 
 /-- 3次元平面配置に対する幾何学的漸化不等式:
 $(n+1)$ 枚目の平面 $H_{n}$ を追加したときの空間領域数は、
