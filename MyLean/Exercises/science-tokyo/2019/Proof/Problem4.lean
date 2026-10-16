@@ -12,6 +12,7 @@ import Mathlib.Tactic.ComputeDegree
 import Mathlib.Data.Fintype.Pi
 import Mathlib.Algebra.Order.BigOperators.Group.Finset
 import Mathlib.Analysis.InnerProductSpace.Basic
+import Mathlib.Analysis.InnerProductSpace.PiL2
 import MyLean.Common
 import MyLean.Exercises.«science-tokyo».«2019».Statement
 
@@ -25,7 +26,8 @@ $$ T_{\max}(n) = \sum_{k=0}^3 \binom{n}{k} = \frac{n^3 + 5n + 6}{6} $$
 
 namespace MyLean.Exercises.«science-tokyo».«2019»
 
-open Set Polynomial BigOperators
+set_option linter.style.openClassical false
+open Classical Set Polynomial BigOperators
 
 /-! ### 平面分割・空間分割の漸化式補題 -/
 
@@ -2357,7 +2359,7 @@ lemma spaceRegionsCount_zero (H : Fin 0 → Plane3) :
   rw [h_univ]
   exact nat_card_connectedComponents_univ
 
-/-- 3次元平面配置に対する幾何学的漸化不等式:
+/- 3次元平面配置に対する幾何学的漸化不等式:
 $(n+1)$ 枚目の平面 $H_{n}$ を追加したときの空間領域数は、
 既存の $n$ 枚による領域数と、第 $(n+1)$ 平面上に現れる交線配置による領域数の和で抑えられる。
 したがって、空間領域数の増加量は高々 $S(n)$ である。
@@ -2365,23 +2367,1016 @@ $(n+1)$ 枚目の平面 $H_{n}$ を追加したときの空間領域数は、
 【新しい平面上の領域分割】
 平面 $H_{n+1}$ は、空間内に既に存在する $n$ 枚の平面 $H_1, \dots, H_n$ とそれぞれ交差する。
 平行でない各平面との交わりによって、$H_{n+1}$ 上には高々 $n$ 本の交線が現れ、
-これらによって平面 $H_{n+1}$ 自身がいくつかの平面領域に分割される。
+これらによって平面 $H_{n+1}$ 自身がいくつかの平面領域に分割される。 -/
 
-【立体領域が増加する幾何学的仕組み】
-追加された平面 $H_{n+1}$ は既存の空間領域を横切り、通過した領域をそれぞれ2つに分割する。
-$H_{n+1}$ 上に現れる各平面領域は、既存の空間領域の内部を切断する境界面に対応するため、
-新しく形成された平面領域1つにつき、空間全体の領域数が1つ増加する。
+/-! ### 3次元空間における幾何学的領域と切断の定義 -/
 
-【漸化式による導出と評価】
-空間領域数を $T_n$、新しい平面上の領域数を $U_n$ と置くとき、漸化式
-$$ T_{n+1} = T_n + U_{n} $$
-が成り立つ。一般の位置にあるとき、$U_n$ は数列 $S(n)$ と一致し、最大増加量を与える。
-したがって、増える立体領域の個数は追加された平面上の領域数と一致し、
-一般の配置における増加量は常に $S(n)$ 以下となる。 -/
+abbrev SignVector3 (n : ℕ) := Fin n → Bool
+
+/-- 3次元空間において各平面 $H_i$ のどちら側に存在するかによって定まる開凸領域。 -/
+def convexSpaceRegion (n : ℕ) (H : Fin n → Plane3) (σ : SignVector3 n) : Set Space3 :=
+  {x : Space3 | ∀ i : Fin n,
+    if σ i then (H i).offset < @inner ℝ Space3 _ (H i).normVec x
+    else @inner ℝ Space3 _ (H i).normVec x < (H i).offset}
+
+/-- 凸領域 $s$ が平面 $P$ によって切断される条件。
+領域の内部を平面が通過することと同値である。 -/
+def isSplitByPlane (s : Set Space3) (P : Plane3) : Prop :=
+  (s ∩ P.toSet).Nonempty
+
+/-- 第 $(n+1)$ 平面によって切断される既存領域の個数。 -/
+noncomputable def splitSpaceRegionsCount (n : ℕ) (H : Fin (n + 1) → Plane3) : ℕ :=
+  (Finset.filter (fun σ =>
+    isSplitByPlane (convexSpaceRegion n (H ∘ Fin.castSucc) σ) (H (Fin.last n))) Finset.univ).card
+
+/-- 3次元開半空間の共通部分として定義される領域は凸集合である。 -/
+lemma convex_combination_mem_region3 {n : ℕ} (H : Fin n → Plane3) (σ : SignVector3 n)
+    {p₁ p₂ : Space3} (hp₁ : p₁ ∈ convexSpaceRegion n H σ) (hp₂ : p₂ ∈ convexSpaceRegion n H σ)
+    {a b : ℝ} (ha : 0 < a) (hb : 0 < b) (hab : a + b = 1) :
+    a • p₁ + b • p₂ ∈ convexSpaceRegion n H σ := by
+  dsimp [convexSpaceRegion] at hp₁ hp₂ ⊢
+  intro i
+  have h1 := hp₁ i
+  have h2 := hp₂ i
+  rw [inner_add_right, inner_smul_right, inner_smul_right]
+  split_ifs at h1 h2 ⊢ with hσ
+  · calc
+      (H i).offset = a * (H i).offset + b * (H i).offset := by
+        rw [← add_mul, hab, one_mul]
+      _ < a * @inner ℝ Space3 _ (H i).normVec p₁ + b * @inner ℝ Space3 _ (H i).normVec p₂ := by
+        nlinarith
+  · calc
+      a * @inner ℝ Space3 _ (H i).normVec p₁ + b * @inner ℝ Space3 _ (H i).normVec p₂
+        < a * (H i).offset + b * (H i).offset := by nlinarith
+      _ = (H i).offset := by rw [← add_mul, hab, one_mul]
+
+/-- 凸領域が平面と交わらないならば、領域全体が平面の真に片側に含まれる。 -/
+lemma region_subset_one_side_of_not_split3 (n : ℕ) (H : Fin (n + 1) → Plane3)
+    (σ : SignVector3 n)
+    (h_not_split : ¬ isSplitByPlane (convexSpaceRegion n (H ∘ Fin.castSucc) σ) (H (Fin.last n))) :
+    (∀ p ∈ convexSpaceRegion n (H ∘ Fin.castSucc) σ,
+      @inner ℝ Space3 _ (H (Fin.last n)).normVec p < (H (Fin.last n)).offset) ∨
+    (∀ p ∈ convexSpaceRegion n (H ∘ Fin.castSucc) σ,
+      (H (Fin.last n)).offset < @inner ℝ Space3 _ (H (Fin.last n)).normVec p) := by
+  by_contra h_both
+  push Not at h_both
+  rcases h_both with ⟨⟨p₁, hp₁, hle₁⟩, ⟨p₂, hp₂, hge₂⟩⟩
+  let u := (H (Fin.last n)).normVec
+  let d := (H (Fin.last n)).offset
+  let v₁ := @inner ℝ Space3 _ u p₁
+  let v₂ := @inner ℝ Space3 _ u p₂
+  have hne₁ : v₁ ≠ d := by
+    intro h_eq
+    apply h_not_split
+    refine ⟨p₁, hp₁, ?_⟩
+    dsimp [Plane3.toSet, u, d] at h_eq ⊢
+    exact h_eq
+  have hne₂ : v₂ ≠ d := by
+    intro h_eq
+    apply h_not_split
+    refine ⟨p₂, hp₂, ?_⟩
+    dsimp [Plane3.toSet, u, d] at h_eq ⊢
+    exact h_eq
+  have hlt₁ : d < v₁ := lt_of_le_of_ne' hle₁ hne₁
+  have hlt₂ : v₂ < d := lt_of_le_of_ne hge₂ hne₂
+  have hv : 0 < v₁ - v₂ := by linarith
+  let a := (d - v₂) / (v₁ - v₂)
+  let b := (v₁ - d) / (v₁ - v₂)
+  have ha : 0 < a := div_pos (by linarith) hv
+  have hb : 0 < b := div_pos (by linarith) hv
+  have hab : a + b = 1 := by
+    dsimp [a, b]
+    calc
+      (d - v₂) / (v₁ - v₂) + (v₁ - d) / (v₁ - v₂)
+        = ((d - v₂) + (v₁ - d)) / (v₁ - v₂) := by rw [← add_div]
+      _ = (v₁ - v₂) / (v₁ - v₂) := by
+        congr 1
+        ring
+      _ = 1 := div_self (ne_of_gt hv)
+  let pt := a • p₁ + b • p₂
+  have hpt_in : pt ∈ convexSpaceRegion n (H ∘ Fin.castSucc) σ :=
+    convex_combination_mem_region3 (H ∘ Fin.castSucc) σ hp₁ hp₂ ha hb hab
+  have hpt_on : pt ∈ (H (Fin.last n)).toSet := by
+    dsimp [Plane3.toSet, pt]
+    rw [inner_add_right, inner_smul_right, inner_smul_right]
+    change a * v₁ + b * v₂ = d
+    dsimp [a, b]
+    calc
+      ((d - v₂) / (v₁ - v₂)) * v₁ + ((v₁ - d) / (v₁ - v₂)) * v₂
+        = ((d - v₂) * v₁ + (v₁ - d) * v₂) / (v₁ - v₂) := by
+        rw [div_mul_eq_mul_div, div_mul_eq_mul_div, ← add_div]
+      _ = (d * (v₁ - v₂)) / (v₁ - v₂) := by
+        congr 1
+        ring
+      _ = d := mul_div_cancel_right₀ d (ne_of_gt hv)
+  apply h_not_split
+  exact ⟨pt, hpt_in, hpt_on⟩
+
+lemma mem_convexSpaceRegion_succ (n : ℕ) (H : Fin (n + 1) → Plane3)
+    (σ : SignVector3 n) (b : Bool) (p : Space3) :
+    p ∈ convexSpaceRegion (n + 1) H (Fin.snoc σ b) ↔
+      p ∈ convexSpaceRegion n (H ∘ Fin.castSucc) σ ∧
+      (if b then (H (Fin.last n)).offset < @inner ℝ Space3 _ (H (Fin.last n)).normVec p
+       else @inner ℝ Space3 _ (H (Fin.last n)).normVec p < (H (Fin.last n)).offset) := by
+  dsimp [convexSpaceRegion]
+  constructor
+  · intro h
+    refine ⟨?_, ?_⟩
+    · intro i
+      have hi := h (Fin.castSucc i)
+      rw [Fin.snoc_castSucc] at hi
+      exact hi
+    · have hlast := h (Fin.last n)
+      rw [Fin.snoc_last] at hlast
+      exact hlast
+  · rintro ⟨h1, h2⟩ i
+    refine Fin.lastCases ?_ ?_ i
+    · rw [Fin.snoc_last]
+      exact h2
+    · intro j
+      rw [Fin.snoc_castSucc]
+      exact h1 j
+
+open Classical in
+lemma fiber_card_le_one_of_not_split3 (n : ℕ) (H : Fin (n + 1) → Plane3)
+    (σ : SignVector3 n)
+    (h_not_split : ¬ isSplitByPlane (convexSpaceRegion n (H ∘ Fin.castSucc) σ) (H (Fin.last n))) :
+    (Finset.filter (fun b : Bool =>
+      (convexSpaceRegion (n + 1) H (Fin.snoc σ b)).Nonempty) Finset.univ).card ≤ 1 := by
+  have h_cases := region_subset_one_side_of_not_split3 n H σ h_not_split
+  by_contra h_gt
+  push Not at h_gt
+  have h_eq : (Finset.filter (fun b : Bool =>
+      (convexSpaceRegion (n + 1) H (Fin.snoc σ b)).Nonempty) Finset.univ) = Finset.univ := by
+    apply Finset.eq_univ_of_card
+    have h_le : (Finset.filter (fun b : Bool =>
+      (convexSpaceRegion (n + 1) H (Fin.snoc σ b)).Nonempty) Finset.univ).card ≤ 2 := by
+      calc
+        (Finset.filter (fun b : Bool =>
+          (convexSpaceRegion (n + 1) H (Fin.snoc σ b)).Nonempty) Finset.univ).card
+          ≤ (Finset.univ : Finset Bool).card := Finset.card_filter_le _ _
+        _ = 2 := Fintype.card_bool
+    rw [Fintype.card_bool]
+    omega
+  have h_false_in : false ∈ Finset.filter (fun b : Bool =>
+      (convexSpaceRegion (n + 1) H (Fin.snoc σ b)).Nonempty) Finset.univ := by
+    rw [h_eq]; exact Finset.mem_univ false
+  have h_true_in : true ∈ Finset.filter (fun b : Bool =>
+      (convexSpaceRegion (n + 1) H (Fin.snoc σ b)).Nonempty) Finset.univ := by
+    rw [h_eq]; exact Finset.mem_univ true
+  simp only [Finset.mem_filter, Finset.mem_univ, true_and] at h_false_in h_true_in
+  rcases h_false_in with ⟨pF, hpF⟩
+  rcases h_true_in with ⟨pT, hpT⟩
+  rw [mem_convexSpaceRegion_succ] at hpF hpT
+  rcases h_cases with h_all_lt | h_all_gt
+  · have hpT_lt := h_all_lt pT hpT.1
+    dsimp at hpT
+    linarith
+  · have hpF_gt := h_all_gt pF hpF.1
+    dsimp at hpF
+    linarith
+
+open Classical in
+lemma fiber_card_le_two3 (n : ℕ) (H : Fin (n + 1) → Plane3) (σ : SignVector3 n) :
+    (Finset.filter (fun b : Bool =>
+      (convexSpaceRegion (n + 1) H (Fin.snoc σ b)).Nonempty) Finset.univ).card ≤ 2 := by
+  calc
+    (Finset.filter (fun b : Bool =>
+      (convexSpaceRegion (n + 1) H (Fin.snoc σ b)).Nonempty) Finset.univ).card
+      ≤ (Finset.univ : Finset Bool).card := Finset.card_filter_le _ _
+    _ = 2 := Fintype.card_bool
+
+open Classical in
+lemma fiber_card_eq_zero_of_empty3 (n : ℕ) (H : Fin (n + 1) → Plane3) (σ : SignVector3 n)
+    (h_empty : ¬ (convexSpaceRegion n (H ∘ Fin.castSucc) σ).Nonempty) :
+    (Finset.filter (fun b : Bool =>
+      (convexSpaceRegion (n + 1) H (Fin.snoc σ b)).Nonempty) Finset.univ).card = 0 := by
+  rw [Finset.card_eq_zero, Finset.filter_eq_empty_iff]
+  intro b _ ⟨p, hp⟩
+  apply h_empty
+  rw [mem_convexSpaceRegion_succ] at hp
+  exact ⟨p, hp.1⟩
+
+open Classical in
+lemma card_filter_nonempty_convexSpaceRegion_succ_le (n : ℕ) (H : Fin (n + 1) → Plane3) :
+    (Finset.filter (fun τ => (convexSpaceRegion (n + 1) H τ).Nonempty) Finset.univ).card ≤
+      (Finset.filter
+        (fun σ => (convexSpaceRegion n (H ∘ Fin.castSucc) σ).Nonempty) Finset.univ).card +
+        splitSpaceRegionsCount n H := by
+  let P_succ := fun τ => (convexSpaceRegion (n + 1) H τ).Nonempty
+  rw [card_filter_succ_eq_sum P_succ]
+  have h_le := sum_fiber_le_sum_add
+    (A := fun σ => if (convexSpaceRegion n (H ∘ Fin.castSucc) σ).Nonempty then 1 else 0)
+    (B := fun σ =>
+      if isSplitByPlane (convexSpaceRegion n (H ∘ Fin.castSucc) σ) (H (Fin.last n)) then 1 else 0)
+    (F := fun σ => (Finset.filter (fun b : Bool => P_succ (Fin.snoc σ b)) Finset.univ).card)
+    (fun σ => by
+      apply term_le_add_split
+      · exact fiber_card_le_two3 n H σ
+      · exact fiber_card_le_one_of_not_split3 n H σ
+      · exact fiber_card_eq_zero_of_empty3 n H σ)
+  have hA : (∑ σ, if (convexSpaceRegion n (H ∘ Fin.castSucc) σ).Nonempty then 1 else 0) =
+      (Finset.filter
+        (fun σ => (convexSpaceRegion n (H ∘ Fin.castSucc) σ).Nonempty) Finset.univ).card :=
+    sum_ite_eq_card_filter _
+  have hB : (∑ σ, if isSplitByPlane (convexSpaceRegion n (H ∘ Fin.castSucc) σ)
+      (H (Fin.last n)) then 1 else 0) = splitSpaceRegionsCount n H := by
+    dsimp [splitSpaceRegionsCount]
+    exact sum_ite_eq_card_filter _
+  rw [hA, hB] at h_le
+  exact h_le
+
+/-! ### 3次元空間領域と非空符号ベクトルの一致定理 -/
+
+noncomputable def pointSignVector3 (n : ℕ) (H : Fin n → Plane3)
+    (x : {x : Space3 | ∀ i, x ∉ (H i).toSet}) : SignVector3 n :=
+  fun i => decide ((H i).offset < @inner ℝ Space3 _ (H i).normVec x.val)
+
+lemma mem_convexSpaceRegion_pointSignVector3 (n : ℕ) (H : Fin n → Plane3)
+    (x : {x : Space3 | ∀ i, x ∉ (H i).toSet}) :
+    x.val ∈ convexSpaceRegion n H (pointSignVector3 n H x) := by
+  dsimp [convexSpaceRegion]
+  intro i
+  have h_not : x.val ∉ (H i).toSet := x.2 i
+  dsimp [Plane3.toSet] at h_not
+  have h_ne : @inner ℝ Space3 _ (H i).normVec x.val ≠ (H i).offset := h_not
+  cases h_bool : pointSignVector3 n H x i
+  · have h_dec : decide ((H i).offset < @inner ℝ Space3 _ (H i).normVec x.val) = false := by
+      change pointSignVector3 n H x i = false at h_bool
+      dsimp [pointSignVector3] at h_bool
+      exact h_bool
+    have h_not_lt := of_decide_eq_false h_dec
+    have h_le : @inner ℝ Space3 _ (H i).normVec x.val ≤ (H i).offset := not_lt.mp h_not_lt
+    exact lt_of_le_of_ne h_le h_ne
+  · have h_dec : decide ((H i).offset < @inner ℝ Space3 _ (H i).normVec x.val) = true := by
+      change pointSignVector3 n H x i = true at h_bool
+      dsimp [pointSignVector3] at h_bool
+      exact h_bool
+    exact of_decide_eq_true h_dec
+
+lemma not_mem_plane_of_mem_convexSpaceRegion {n : ℕ} (H : Fin n → Plane3) (σ : SignVector3 n)
+    {p : Space3} (hp : p ∈ convexSpaceRegion n H σ) (i : Fin n) :
+    p ∉ (H i).toSet := by
+  have h := hp i
+  dsimp [Plane3.toSet]
+  split_ifs at h with hσ
+  · linarith
+  · linarith
+
+lemma pointSignVector3_eq_of_mem (n : ℕ) (H : Fin n → Plane3)
+    (x : {x : Space3 | ∀ i, x ∉ (H i).toSet}) (σ : SignVector3 n)
+    (hx : x.val ∈ convexSpaceRegion n H σ) :
+    pointSignVector3 n H x = σ := by
+  funext i
+  have h := hx i
+  dsimp [pointSignVector3]
+  cases hσ : σ i
+  · rw [hσ] at h
+    dsimp at h
+    have : ¬ (H i).offset < @inner ℝ Space3 _ (H i).normVec x.val := not_lt.mpr (le_of_lt h)
+    simp [this]
+  · rw [hσ] at h
+    dsimp at h
+    simp [h]
+
+lemma pointSignVector3_eq_of_connectedComponent_eq (n : ℕ) (H : Fin n → Plane3)
+    (x y : {x : Space3 | ∀ i, x ∉ (H i).toSet})
+    (h_conn : connectedComponent x = connectedComponent y) :
+    pointSignVector3 n H x = pointSignVector3 n H y := by
+  funext i
+  by_contra hne
+  have h_cases : (pointSignVector3 n H x i = true ∧ pointSignVector3 n H y i = false) ∨
+                 (pointSignVector3 n H x i = false ∧ pointSignVector3 n H y i = true) := by
+    revert hne
+    cases pointSignVector3 n H x i <;> cases pointSignVector3 n H y i <;> intro hne
+    · exact False.elim (hne rfl)
+    · right; exact ⟨rfl, rfl⟩
+    · left; exact ⟨rfl, rfl⟩
+    · exact False.elim (hne rfl)
+  have h_cont : Continuous (fun p : {p : Space3 | ∀ i, p ∉ (H i).toSet} =>
+      @inner ℝ Space3 _ (H i).normVec p.val) :=
+    continuous_const.inner continuous_subtype_val
+  let U : Set {p : Space3 | ∀ i, p ∉ (H i).toSet} :=
+    {p | (H i).offset < @inner ℝ Space3 _ (H i).normVec p.val}
+  have hU_open : IsOpen U := isOpen_Ioi.preimage h_cont
+  have hUc_open : IsOpen (Uᶜ) := by
+    have h_eq : Uᶜ = {p : {p : Space3 | ∀ i, p ∉ (H i).toSet} |
+        @inner ℝ Space3 _ (H i).normVec p.val < (H i).offset} := by
+      ext p
+      simp only [mem_compl_iff]
+      change ¬ (H i).offset < @inner ℝ Space3 _ (H i).normVec p.val ↔
+        @inner ℝ Space3 _ (H i).normVec p.val < (H i).offset
+      have hp_not : p.val ∉ (H i).toSet := p.2 i
+      dsimp [Plane3.toSet] at hp_not
+      constructor
+      · intro hnot
+        exact lt_of_le_of_ne (not_lt.mp hnot) hp_not
+      · intro hlt hnot
+        exact lt_asymm hlt hnot
+    rw [h_eq]
+    exact isOpen_Iio.preimage h_cont
+  have hU_clopen : IsClopen U := ⟨isOpen_compl_iff.mp hUc_open, hU_open⟩
+  rcases h_cases with ⟨hxt, hyf⟩ | ⟨hxf, hyt⟩
+  · have hxU : x ∈ U := by
+      change (H i).offset < @inner ℝ Space3 _ (H i).normVec x.val
+      have : pointSignVector3 n H x i = true := hxt
+      dsimp [pointSignVector3] at this
+      exact of_decide_eq_true this
+    have hyUc : y ∈ Uᶜ := by
+      intro hy
+      have : pointSignVector3 n H y i = false := hyf
+      dsimp [pointSignVector3] at this
+      have hnot := of_decide_eq_false this
+      exact hnot hy
+    have h_sub := IsClopen.connectedComponent_subset hU_clopen hxU
+    have hy_in_comp : y ∈ connectedComponent x := by
+      rw [h_conn]
+      exact mem_connectedComponent
+    exact hyUc (h_sub hy_in_comp)
+  · have hyU : y ∈ U := by
+      change (H i).offset < @inner ℝ Space3 _ (H i).normVec y.val
+      have : pointSignVector3 n H y i = true := hyt
+      dsimp [pointSignVector3] at this
+      exact of_decide_eq_true this
+    have hxUc : x ∈ Uᶜ := by
+      intro hx
+      have : pointSignVector3 n H x i = false := hxf
+      dsimp [pointSignVector3] at this
+      have hnot := of_decide_eq_false this
+      exact hnot hx
+    have h_sub := IsClopen.connectedComponent_subset hU_clopen hyU
+    have hx_in_comp : x ∈ connectedComponent y := by
+      rw [← h_conn]
+      exact mem_connectedComponent
+    exact hxUc (h_sub hx_in_comp)
+
+lemma mem_convexSpaceRegion_segment3 {n : ℕ} (H : Fin n → Plane3) (σ : SignVector3 n)
+    {p₁ p₂ : Space3} (hp₁ : p₁ ∈ convexSpaceRegion n H σ) (hp₂ : p₂ ∈ convexSpaceRegion n H σ)
+    {t : ℝ} (ht : t ∈ Icc (0 : ℝ) 1) :
+    (1 - t) • p₁ + t • p₂ ∈ convexSpaceRegion n H σ := by
+  rcases eq_or_lt_of_le ht.1 with ht0 | ht0
+  · subst ht0
+    simp only [sub_zero, one_smul, zero_smul, add_zero]
+    exact hp₁
+  · rcases eq_or_lt_of_le ht.2 with ht1 | ht1
+    · subst ht1
+      simp only [sub_self, zero_smul, one_smul, zero_add]
+      exact hp₂
+    · have ha : 0 < 1 - t := by linarith
+      have hb : 0 < t := ht0
+      have hab : (1 - t) + t = 1 := by ring
+      exact convex_combination_mem_region3 H σ hp₁ hp₂ ha hb hab
+
+lemma connectedComponent_eq_of_pointSignVector3_eq (n : ℕ) (H : Fin n → Plane3)
+    (x y : {x : Space3 | ∀ i, x ∉ (H i).toSet})
+    (h_eq : pointSignVector3 n H x = pointSignVector3 n H y) :
+    connectedComponent x = connectedComponent y := by
+  let σ := pointSignVector3 n H x
+  have hx_mem : x.val ∈ convexSpaceRegion n H σ :=
+    mem_convexSpaceRegion_pointSignVector3 n H x
+  have hy_mem : y.val ∈ convexSpaceRegion n H σ := by
+    have h_eq_y : σ = pointSignVector3 n H y := h_eq
+    rw [h_eq_y]
+    exact mem_convexSpaceRegion_pointSignVector3 n H y
+  let α := {p : Space3 | ∀ i, p ∉ (H i).toSet}
+  let γ_raw : ℝ → Space3 := fun t => (1 - t) • x.val + t • y.val
+  have h_cont_raw : Continuous γ_raw := by
+    continuity
+  have h_segment_mem : ∀ t ∈ Icc (0 : ℝ) 1, ∀ i : Fin n, γ_raw t ∉ (H i).toSet := by
+    intro t ht i
+    have h_mem := mem_convexSpaceRegion_segment3 H σ hx_mem hy_mem ht
+    exact not_mem_plane_of_mem_convexSpaceRegion H σ h_mem i
+  let γ : Icc (0 : ℝ) 1 → α := fun ⟨t, ht⟩ => ⟨γ_raw t, h_segment_mem t ht⟩
+  have h_cont_γ : Continuous γ := by
+    exact Continuous.subtype_mk (h_cont_raw.comp continuous_subtype_val) _
+  have : ConnectedSpace (Icc (0 : ℝ) 1) :=
+    Subtype.connectedSpace (isConnected_Icc (by norm_num : (0 : ℝ) ≤ 1))
+  have h_conn_range : IsConnected (range γ) := isConnected_range h_cont_γ
+  have hx_range : x ∈ range γ := by
+    use ⟨0, ⟨le_refl 0, by norm_num⟩⟩
+    apply Subtype.ext
+    dsimp [γ, γ_raw]
+    simp
+  have hy_range : y ∈ range γ := by
+    use ⟨1, ⟨by norm_num, le_refl 1⟩⟩
+    apply Subtype.ext
+    dsimp [γ, γ_raw]
+    simp
+  have h_sub := IsConnected.subset_connectedComponent h_conn_range hx_range
+  have hy_in_comp : y ∈ connectedComponent x := h_sub hy_range
+  exact connectedComponent_eq hy_in_comp
+
+open Classical in
+/-- 3次元空間における平面配置の領域数は、空でない符号ベクトルの個数と一致する。 -/
+lemma spaceRegionsCount_eq_card_nonempty_convexSpaceRegion (n : ℕ) (H : Fin n → Plane3) :
+    spaceRegionsCount n H =
+      (Finset.filter (fun σ => (convexSpaceRegion n H σ).Nonempty) Finset.univ).card := by
+  let α := {x : Space3 | ∀ i, x ∉ (H i).toSet}
+  let s : Setoid α := connectedComponentSetoid α
+  let V := {σ : SignVector3 n // (convexSpaceRegion n H σ).Nonempty}
+  let f : α → V := fun x =>
+    ⟨pointSignVector3 n H x, ⟨x.val, mem_convexSpaceRegion_pointSignVector3 n H x⟩⟩
+  have h_fiber : ∀ x y : α, f x = f y → x ≈ y := by
+    intro x y hfg
+    have h_eq : pointSignVector3 n H x = pointSignVector3 n H y := congr_arg Subtype.val hfg
+    exact connectedComponent_eq_of_pointSignVector3_eq n H x y h_eq
+  have h_le : Nat.card (Quotient s) ≤ Fintype.card V :=
+    card_quotient_le_of_fiber_le s f h_fiber
+  have h_rep : ∀ v : V, ∃ x : α, f x = v := by
+    intro ⟨σ, hσ⟩
+    obtain ⟨p, hp⟩ := hσ
+    have hp_not : ∀ i, p ∉ (H i).toSet := not_mem_plane_of_mem_convexSpaceRegion H σ hp
+    have h_sign := pointSignVector3_eq_of_mem n H ⟨p, hp_not⟩ σ hp
+    refine ⟨⟨p, hp_not⟩, Subtype.ext h_sign⟩
+  choose w hw using h_rep
+  let g : V → Quotient s := fun v => Quotient.mk s (w v)
+  have hg_inj : Function.Injective g := by
+    intro v1 v2 hg
+    have hequiv : w v1 ≈ w v2 := Quotient.exact hg
+    have hconn : connectedComponent (w v1) = connectedComponent (w v2) := hequiv
+    have hsign := pointSignVector3_eq_of_connectedComponent_eq n H (w v1) (w v2) hconn
+    have h_f_eq : f (w v1) = f (w v2) := Subtype.ext hsign
+    rw [hw v1, hw v2] at h_f_eq
+    exact h_f_eq
+  have : Finite (Quotient s) := finite_quotient_of_fiber_le s f h_fiber
+  have h_ge := Nat.card_le_card_of_injective g hg_inj
+  have h_card_V : Fintype.card V =
+      (Finset.filter (fun σ => (convexSpaceRegion n H σ).Nonempty) Finset.univ).card := by
+    rw [Fintype.card_subtype]
+  rw [Nat.card_eq_fintype_card] at h_ge
+  dsimp [spaceRegionsCount]
+  change Nat.card (Quotient s) =
+    (Finset.filter (fun σ => (convexSpaceRegion n H σ).Nonempty) Finset.univ).card
+  omega
+
+/-- 空間領域の増加量は、切断された既存領域の個数で上から抑えられる。 -/
+lemma spaceRegionsCount_succ_le_add_split (n : ℕ) (H : Fin (n + 1) → Plane3) :
+    spaceRegionsCount (n + 1) H ≤
+      spaceRegionsCount n (H ∘ Fin.castSucc) + splitSpaceRegionsCount n H := by
+  rw [spaceRegionsCount_eq_card_nonempty_convexSpaceRegion]
+  rw [spaceRegionsCount_eq_card_nonempty_convexSpaceRegion]
+  exact card_filter_nonempty_convexSpaceRegion_succ_le n H
+
+/-! ### 3次元平面のパラメータ付けと誘導交線配置の評価 -/
+
+lemma space3_inner_apply (v w : Space3) :
+    @inner ℝ Space3 _ v w =
+      WithLp.equiv 2 (Fin 3 → ℝ) v 0 * WithLp.equiv 2 (Fin 3 → ℝ) w 0 +
+      WithLp.equiv 2 (Fin 3 → ℝ) v 1 * WithLp.equiv 2 (Fin 3 → ℝ) w 1 +
+      WithLp.equiv 2 (Fin 3 → ℝ) v 2 * WithLp.equiv 2 (Fin 3 → ℝ) w 2 := by
+  have h := PiLp.inner_apply (𝕜 := ℝ) (x := v) (y := w)
+  rw [h, Fin.sum_univ_three]
+  simp only [Real.inner_apply]
+  rfl
+
+noncomputable def crossProduct3 (v w : Space3) : Space3 :=
+  WithLp.equiv 2 (Fin 3 → ℝ) |>.symm fun i =>
+    let v_fn := WithLp.equiv 2 (Fin 3 → ℝ) v
+    let w_fn := WithLp.equiv 2 (Fin 3 → ℝ) w
+    if i.val = 0 then v_fn 1 * w_fn 2 - v_fn 2 * w_fn 1
+    else if i.val = 1 then v_fn 2 * w_fn 0 - v_fn 0 * w_fn 2
+    else v_fn 0 * w_fn 1 - v_fn 1 * w_fn 0
+
+noncomputable def planeBasis1 (u : Space3) : Space3 :=
+  let u_fn := WithLp.equiv 2 (Fin 3 → ℝ) u
+  if u_fn 0 = 0 ∧ u_fn 1 = 0 then
+    WithLp.equiv 2 (Fin 3 → ℝ) |>.symm fun i => if i.val = 0 then 1 else 0
+  else
+    WithLp.equiv 2 (Fin 3 → ℝ) |>.symm fun i =>
+      if i.val = 0 then - (u_fn 1)
+      else if i.val = 1 then u_fn 0
+      else 0
+
+noncomputable def planeBasis2 (u : Space3) : Space3 :=
+  crossProduct3 u (planeBasis1 u)
+
+lemma inner_planeBasis1_self (u : Space3) :
+    @inner ℝ Space3 _ (planeBasis1 u) u = 0 := by
+  rw [space3_inner_apply]
+  dsimp [planeBasis1]
+  split_ifs with h
+  · simp [h.1]
+  · simp
+    ring
+
+lemma inner_planeBasis2_self (u : Space3) :
+    @inner ℝ Space3 _ (planeBasis2 u) u = 0 := by
+  rw [space3_inner_apply]
+  dsimp [planeBasis2, crossProduct3]
+  simp
+  ring
+
+lemma inner_planeBasis2_planeBasis1 (u : Space3) :
+    @inner ℝ Space3 _ (planeBasis2 u) (planeBasis1 u) = 0 := by
+  rw [space3_inner_apply]
+  dsimp [planeBasis2, crossProduct3]
+  simp
+  ring
+
+lemma eq_zero_of_orthogonal_inners_zero (u : Space3) (hu : u ≠ 0) (w : Space3)
+    (h_uw : @inner ℝ Space3 _ u w = 0)
+    (h_e1w : @inner ℝ Space3 _ (planeBasis1 u) w = 0)
+    (h_e2w : @inner ℝ Space3 _ (planeBasis2 u) w = 0) :
+    w = 0 := by
+  rw [space3_inner_apply] at h_uw h_e1w h_e2w
+  apply (WithLp.equiv 2 (Fin 3 → ℝ)).injective
+  ext i
+  let u0 := WithLp.equiv 2 (Fin 3 → ℝ) u 0
+  let u1 := WithLp.equiv 2 (Fin 3 → ℝ) u 1
+  let u2 := WithLp.equiv 2 (Fin 3 → ℝ) u 2
+  let w0 := WithLp.equiv 2 (Fin 3 → ℝ) w 0
+  let w1 := WithLp.equiv 2 (Fin 3 → ℝ) w 1
+  let w2 := WithLp.equiv 2 (Fin 3 → ℝ) w 2
+  have hu_ext : ¬ (u0 = 0 ∧ u1 = 0 ∧ u2 = 0) := by
+    intro h_all
+    apply hu
+    apply (WithLp.equiv 2 (Fin 3 → ℝ)).injective
+    ext j
+    fin_cases j <;> aesop
+  dsimp [planeBasis1, planeBasis2, crossProduct3] at h_e1w h_e2w
+  split_ifs at h_e1w h_e2w with h_case
+  · have hu2 : u2 ≠ 0 := by
+      intro h2
+      exact hu_ext ⟨h_case.1, h_case.2, h2⟩
+    simp [h_case.1, h_case.2] at h_uw h_e1w h_e2w
+    have hw2 : w2 = 0 := by
+      rcases h_uw with h | h
+      · exact (hu2 h).elim
+      · exact h
+    have hw0 : w0 = 0 := h_e1w
+    have hw1 : w1 = 0 := by
+      rcases h_e2w with h | h
+      · exact (hu2 h).elim
+      · exact h
+    fin_cases i
+    · exact hw0
+    · exact hw1
+    · exact hw2
+  · simp only [WithLp.equiv_apply] at h_e1w h_e2w
+    have h_sq1_pos : 0 < u0 ^ 2 + u1 ^ 2 := by
+      have : u0 ≠ 0 ∨ u1 ≠ 0 := by
+        by_contra h_both
+        push Not at h_both
+        exact h_case h_both
+      rcases this with h0 | h1
+      · have : 0 < u0 ^ 2 := sq_pos_of_ne_zero h0
+        have : 0 ≤ u1 ^ 2 := sq_nonneg _
+        linarith
+      · have : 0 < u1 ^ 2 := sq_pos_of_ne_zero h1
+        have : 0 ≤ u0 ^ 2 := sq_nonneg _
+        linarith
+    have h_sq1_ne : u0 ^ 2 + u1 ^ 2 ≠ 0 := ne_of_gt h_sq1_pos
+    have h_u_sq_pos : 0 < u0 ^ 2 + u1 ^ 2 + u2 ^ 2 := by
+      have : 0 ≤ u2 ^ 2 := sq_nonneg _
+      linarith
+    have h_u_sq_ne : u0 ^ 2 + u1 ^ 2 + u2 ^ 2 ≠ 0 := ne_of_gt h_u_sq_pos
+    have hw2 : w2 = 0 := by
+      have h_comb : (u0 ^ 2 + u1 ^ 2 + u2 ^ 2) * w2 =
+          u2 * (u0 * w0 + u1 * w1 + u2 * w2) +
+          ((- (u0 * u2)) * w0 + (- (u1 * u2)) * w1 + (u0 ^ 2 + u1 ^ 2) * w2) := by ring
+      have h_e2w_simpl : (- (u0 * u2)) * w0 + (- (u1 * u2)) * w1 + (u0 ^ 2 + u1 ^ 2) * w2 = 0 := by
+        calc
+          (- (u0 * u2)) * w0 + (- (u1 * u2)) * w1 + (u0 ^ 2 + u1 ^ 2) * w2 =
+            ((u1 * 0 - u2 * u0) * w0 + (u2 * (- u1) - u0 * 0) * w1 +
+              (u0 * u0 - u1 * (- u1)) * w2) := by ring
+          _ = 0 := h_e2w
+      rw [h_uw, h_e2w_simpl] at h_comb
+      simp only [mul_zero, add_zero] at h_comb
+      exact (mul_eq_zero.mp h_comb).resolve_left h_u_sq_ne
+    have h_uw' : u0 * w0 + u1 * w1 = 0 := by
+      calc
+        u0 * w0 + u1 * w1 = (u0 * w0 + u1 * w1 + u2 * w2) - u2 * w2 := by ring
+        _ = 0 - u2 * 0 := by rw [h_uw, hw2]
+        _ = 0 := by ring
+    have h_e1w_simpl : - u1 * w0 + u0 * w1 = 0 := by
+      calc
+        - u1 * w0 + u0 * w1 = - u1 * w0 + u0 * w1 + 0 * w2 := by ring
+        _ = 0 := h_e1w
+    have hw0 : w0 = 0 := by
+      have h_comb : (u0 ^ 2 + u1 ^ 2) * w0 =
+          u0 * (u0 * w0 + u1 * w1) - u1 * (- u1 * w0 + u0 * w1) := by ring
+      rw [h_uw', h_e1w_simpl] at h_comb
+      simp only [mul_zero, sub_zero] at h_comb
+      exact (mul_eq_zero.mp h_comb).resolve_left h_sq1_ne
+    have hw1 : w1 = 0 := by
+      have h_comb : (u0 ^ 2 + u1 ^ 2) * w1 =
+          u1 * (u0 * w0 + u1 * w1) + u0 * (- u1 * w0 + u0 * w1) := by ring
+      rw [h_uw', h_e1w_simpl] at h_comb
+      simp only [mul_zero, add_zero] at h_comb
+      exact (mul_eq_zero.mp h_comb).resolve_left h_sq1_ne
+    fin_cases i
+    · exact hw0
+    · exact hw1
+    · exact hw2
+
+lemma planeBasis1_ne_zero (u : Space3) (hu : u ≠ 0) : planeBasis1 u ≠ 0 := by
+  dsimp [planeBasis1]
+  intro h0
+  let u0 := WithLp.equiv 2 (Fin 3 → ℝ) u 0
+  let u1 := WithLp.equiv 2 (Fin 3 → ℝ) u 1
+  let u2 := WithLp.equiv 2 (Fin 3 → ℝ) u 2
+  have hu_ext : ¬ (u0 = 0 ∧ u1 = 0 ∧ u2 = 0) := by
+    intro h_all
+    apply hu
+    apply (WithLp.equiv 2 (Fin 3 → ℝ)).injective
+    ext j
+    fin_cases j <;> aesop
+  split_ifs at h0 with h_case
+  · have h_zero := congr_fun (congr_arg (WithLp.equiv 2 (Fin 3 → ℝ)) h0) 0
+    simp at h_zero
+  · have h_zero0 := congr_fun (congr_arg (WithLp.equiv 2 (Fin 3 → ℝ)) h0) 0
+    have h_zero1 := congr_fun (congr_arg (WithLp.equiv 2 (Fin 3 → ℝ)) h0) 1
+    simp at h_zero0 h_zero1
+    change u1 = 0 at h_zero0
+    change u0 = 0 at h_zero1
+    exact h_case ⟨h_zero1, by linarith⟩
+
+lemma planeBasis2_ne_zero (u : Space3) (hu : u ≠ 0) : planeBasis2 u ≠ 0 := by
+  intro h0
+  let u0 := WithLp.equiv 2 (Fin 3 → ℝ) u 0
+  let u1 := WithLp.equiv 2 (Fin 3 → ℝ) u 1
+  let u2 := WithLp.equiv 2 (Fin 3 → ℝ) u 2
+  have hu_ext : ¬ (u0 = 0 ∧ u1 = 0 ∧ u2 = 0) := by
+    intro h_all
+    apply hu
+    apply (WithLp.equiv 2 (Fin 3 → ℝ)).injective
+    ext j
+    fin_cases j <;> aesop
+  dsimp [planeBasis2, crossProduct3, planeBasis1] at h0
+  have h_zero := congr_fun (congr_arg (WithLp.equiv 2 (Fin 3 → ℝ)) h0)
+  split_ifs at h_zero with h_case
+  · have h_z1 := h_zero 1
+    simp [h_case.1, h_case.2] at h_z1
+    have hu2 : u2 ≠ 0 := by
+      intro h2
+      exact hu_ext ⟨h_case.1, h_case.2, h2⟩
+    exact hu2 h_z1
+  · have h_z2 := h_zero 2
+    simp only [WithLp.equiv_apply] at h_z2
+    have h_sq1_pos : 0 < u0 ^ 2 + u1 ^ 2 := by
+      have : u0 ≠ 0 ∨ u1 ≠ 0 := by
+        by_contra h_both
+        push Not at h_both
+        exact h_case h_both
+      rcases this with h0 | h1
+      · have : 0 < u0 ^ 2 := sq_pos_of_ne_zero h0
+        have : 0 ≤ u1 ^ 2 := sq_nonneg _
+        linarith
+      · have : 0 < u1 ^ 2 := sq_pos_of_ne_zero h1
+        have : 0 ≤ u0 ^ 2 := sq_nonneg _
+        linarith
+    have : u0 ^ 2 + u1 ^ 2 = 0 := by
+      calc
+        u0 ^ 2 + u1 ^ 2 = u0 * u0 - u1 * (- u1) := by ring
+        _ = 0 := h_z2
+    linarith
+
+noncomputable def planePt3 (H : Plane3) (p : Plane2) : Space3 :=
+  let u := H.normVec
+  let d := H.offset
+  let sq_u := @inner ℝ Space3 _ u u
+  let e1 := planeBasis1 u
+  let e2 := planeBasis2 u
+  let p0 := (d / sq_u) • u
+  p0 + (WithLp.equiv 2 (Fin 2 → ℝ) p 0) • e1 + (WithLp.equiv 2 (Fin 2 → ℝ) p 1) • e2
+
+lemma planePt3_mem_plane (H : Plane3) (p : Plane2) : planePt3 H p ∈ H.toSet := by
+  dsimp [Plane3.toSet, planePt3]
+  rw [inner_add_right, inner_add_right, inner_smul_right, inner_smul_right, inner_smul_right]
+  have hu_sq : @inner ℝ Space3 _ H.normVec H.normVec ≠ 0 := by
+    intro h0
+    apply H.normVec_ne_zero
+    exact inner_self_eq_zero.mp h0
+  have he1 : @inner ℝ Space3 _ H.normVec (planeBasis1 H.normVec) = 0 := by
+    rw [real_inner_comm]
+    exact inner_planeBasis1_self H.normVec
+  have he2 : @inner ℝ Space3 _ H.normVec (planeBasis2 H.normVec) = 0 := by
+    rw [real_inner_comm]
+    exact inner_planeBasis2_self H.normVec
+  rw [he1, he2, mul_zero, mul_zero, add_zero, add_zero]
+  exact div_mul_cancel₀ H.offset hu_sq
+
+lemma exists_p_planePt3_eq (H : Plane3) {q : Space3} (hq : q ∈ H.toSet) :
+    ∃ p : Plane2, planePt3 H p = q := by
+  let u := H.normVec
+  let d := H.offset
+  let sq_u := @inner ℝ Space3 _ u u
+  let e1 := planeBasis1 u
+  let e2 := planeBasis2 u
+  let sq_e1 := @inner ℝ Space3 _ e1 e1
+  let sq_e2 := @inner ℝ Space3 _ e2 e2
+  have hu_ne := H.normVec_ne_zero
+  have he1_ne := planeBasis1_ne_zero u hu_ne
+  have he2_ne := planeBasis2_ne_zero u hu_ne
+  have he1_sq : sq_e1 ≠ 0 := by
+    dsimp [sq_e1]
+    intro h0
+    exact he1_ne (inner_self_eq_zero.mp h0)
+  have he2_sq : sq_e2 ≠ 0 := by
+    dsimp [sq_e2]
+    intro h0
+    exact he2_ne (inner_self_eq_zero.mp h0)
+  have hu_sq : sq_u ≠ 0 := by
+    dsimp [sq_u]
+    intro h0
+    exact hu_ne (inner_self_eq_zero.mp h0)
+  let p0 := (d / sq_u) • u
+  let s := @inner ℝ Space3 _ e1 (q - p0) / sq_e1
+  let t := @inner ℝ Space3 _ e2 (q - p0) / sq_e2
+  let p : Plane2 := WithLp.equiv 2 (Fin 2 → ℝ) |>.symm fun i => if i.val = 0 then s else t
+  have h_p0 : WithLp.equiv 2 (Fin 2 → ℝ) p 0 = s := by
+    dsimp [p]
+    rw [WithLp.equiv_apply, WithLp.ofLp_toLp]
+    rfl
+  have h_p1 : WithLp.equiv 2 (Fin 2 → ℝ) p 1 = t := by
+    dsimp [p]
+    rw [WithLp.equiv_apply, WithLp.ofLp_toLp]
+    rfl
+  use p
+  have hq_offset : @inner ℝ Space3 _ u q = d := hq
+  let diff := q - planePt3 H p
+  have h_diff_u : @inner ℝ Space3 _ u diff = 0 := by
+    dsimp [diff]
+    rw [inner_sub_right]
+    have : @inner ℝ Space3 _ u (planePt3 H p) = d := planePt3_mem_plane H p
+    rw [hq_offset, this, sub_self]
+  have h_diff_e1 : @inner ℝ Space3 _ e1 diff = 0 := by
+    dsimp [diff, planePt3, p0]
+    rw [h_p0, h_p1]
+    rw [inner_sub_right]
+    rw [inner_add_right, inner_add_right, inner_smul_right, inner_smul_right, inner_smul_right]
+    have h_e1_u : @inner ℝ Space3 _ e1 u = 0 := inner_planeBasis1_self u
+    have h_e1_e2 : @inner ℝ Space3 _ e1 e2 = 0 := by
+      rw [real_inner_comm]
+      exact inner_planeBasis2_planeBasis1 u
+    rw [h_e1_u, h_e1_e2, mul_zero, mul_zero, add_zero, zero_add]
+    have h_cancel : (@inner ℝ Space3 _ e1 (q - (d / sq_u) • u) / sq_e1) * sq_e1 =
+        @inner ℝ Space3 _ e1 (q - (d / sq_u) • u) := div_mul_cancel₀ _ he1_sq
+    rw [h_cancel]
+    rw [inner_sub_right, inner_smul_right, h_e1_u, mul_zero, sub_zero, sub_self]
+  have h_diff_e2 : @inner ℝ Space3 _ e2 diff = 0 := by
+    dsimp [diff, planePt3, p0]
+    rw [h_p0, h_p1]
+    rw [inner_sub_right]
+    rw [inner_add_right, inner_add_right, inner_smul_right, inner_smul_right, inner_smul_right]
+    have h_e2_u : @inner ℝ Space3 _ e2 u = 0 := inner_planeBasis2_self u
+    have h_e2_e1 : @inner ℝ Space3 _ e2 e1 = 0 := inner_planeBasis2_planeBasis1 u
+    rw [h_e2_u, h_e2_e1, mul_zero, mul_zero, add_zero, zero_add]
+    have h_cancel : (@inner ℝ Space3 _ e2 (q - (d / sq_u) • u) / sq_e2) * sq_e2 =
+        @inner ℝ Space3 _ e2 (q - (d / sq_u) • u) := div_mul_cancel₀ _ he2_sq
+    rw [h_cancel]
+    rw [inner_sub_right, inner_smul_right, h_e2_u, mul_zero, sub_zero, sub_self]
+  have h_zero := eq_zero_of_orthogonal_inners_zero u hu_ne diff h_diff_u h_diff_e1 h_diff_e2
+  dsimp [diff] at h_zero
+  exact sub_eq_zero.mp h_zero |>.symm
+
+lemma plane2_inner_apply (v w : Plane2) :
+    @inner ℝ Plane2 _ v w =
+      WithLp.equiv 2 (Fin 2 → ℝ) v 0 * WithLp.equiv 2 (Fin 2 → ℝ) w 0 +
+      WithLp.equiv 2 (Fin 2 → ℝ) v 1 * WithLp.equiv 2 (Fin 2 → ℝ) w 1 := by
+  have h := PiLp.inner_apply (𝕜 := ℝ) (x := v) (y := w)
+  rw [h, Fin.sum_univ_two]
+  simp only [Real.inner_apply]
+  rfl
+
+lemma maxPlaneRegions_mono {m n : ℕ} (h : m ≤ n) :
+    maxPlaneRegions m ≤ maxPlaneRegions n := by
+  dsimp [maxPlaneRegions]
+  have h0 : Nat.choose m 0 ≤ Nat.choose n 0 := by simp
+  have h1 : Nat.choose m 1 ≤ Nat.choose n 1 := by simp [h]
+  have h2 : Nat.choose m 2 ≤ Nat.choose n 2 := Nat.choose_le_choose 2 h
+  omega
+
+lemma inner_planePt3_sub (H_last : Plane3) (p : Plane2) (H_i : Plane3) :
+    let u_last := H_last.normVec
+    let e1 := planeBasis1 u_last
+    let e2 := planeBasis2 u_last
+    let sq_u := @inner ℝ Space3 _ u_last u_last
+    let p0 := (H_last.offset / sq_u) • u_last
+    let ui := H_i.normVec
+    let di := H_i.offset
+    let w0 := @inner ℝ Space3 _ ui e1
+    let w1 := @inner ℝ Space3 _ ui e2
+    let w : Plane2 := (WithLp.equiv 2 (Fin 2 → ℝ)).symm fun j => if j.val = 0 then w0 else w1
+    let ci := di - @inner ℝ Space3 _ ui p0
+    @inner ℝ Space3 _ ui (planePt3 H_last p) - di =
+      @inner ℝ Plane2 _ w p - ci := by
+  dsimp [planePt3]
+  rw [inner_add_right, inner_add_right, inner_smul_right, inner_smul_right, inner_smul_right]
+  rw [plane2_inner_apply]
+  simp only [WithLp.equiv_apply, Fin.val_zero, Fin.val_one, ↓reduceIte]
+  norm_num
+  ring
+
+lemma inner_planePt3_eq_p0_of_w_zero (H_last : Plane3) (p : Plane2) (H_i : Plane3)
+    (hw : (WithLp.equiv 2 (Fin 2 → ℝ)).symm (fun j =>
+      if j.val = 0 then @inner ℝ Space3 _ H_i.normVec (planeBasis1 H_last.normVec)
+      else @inner ℝ Space3 _ H_i.normVec (planeBasis2 H_last.normVec)) = 0) :
+    let u_last := H_last.normVec
+    let sq_u := @inner ℝ Space3 _ u_last u_last
+    let p0 := (H_last.offset / sq_u) • u_last
+    @inner ℝ Space3 _ H_i.normVec (planePt3 H_last p) = @inner ℝ Space3 _ H_i.normVec p0 := by
+  have h_id := inner_planePt3_sub H_last p H_i
+  dsimp only at h_id
+  have hw_zero : @inner ℝ Plane2 _
+      ((WithLp.equiv 2 (Fin 2 → ℝ)).symm fun j =>
+        if j.val = 0 then @inner ℝ Space3 _ H_i.normVec (planeBasis1 H_last.normVec)
+        else @inner ℝ Space3 _ H_i.normVec (planeBasis2 H_last.normVec)) p = 0 := by
+    rw [hw, inner_zero_left]
+  rw [hw_zero, zero_sub] at h_id
+  dsimp
+  linarith
+
+/-- 切断された空間領域数は、誘導交線配置の平面領域数、ひいては最大領域数 $S(n)$ で上から抑えられる。 -/
+lemma splitSpaceRegionsCount_le_maxPlaneRegions (n : ℕ) (H : Fin (n + 1) → Plane3) :
+    splitSpaceRegionsCount n H ≤ maxPlaneRegions n := by
+  let split_sigs := Finset.filter (fun σ =>
+    isSplitByPlane (convexSpaceRegion n (H ∘ Fin.castSucc) σ) (H (Fin.last n))) Finset.univ
+  have h_rep_q : ∀ σ ∈ split_sigs, ∃ q : Space3,
+      q ∈ convexSpaceRegion n (H ∘ Fin.castSucc) σ ∧ q ∈ (H (Fin.last n)).toSet := by
+    intro σ hσ
+    rw [Finset.mem_filter] at hσ
+    rcases hσ.2 with ⟨q, hq1, hq2⟩
+    exact ⟨q, hq1, hq2⟩
+  choose q_rep hq_rep using h_rep_q
+  have h_rep_p : ∀ σ : {σ // σ ∈ split_sigs}, ∃ p : Plane2,
+      planePt3 (H (Fin.last n)) p = q_rep σ.val σ.property := by
+    intro ⟨σ, hσ⟩
+    exact exists_p_planePt3_eq (H (Fin.last n)) (hq_rep σ hσ).2
+  choose p_rep hp_rep using h_rep_p
+  let w_vec : Fin n → Plane2 := fun i =>
+    (WithLp.equiv 2 (Fin 2 → ℝ)).symm fun j =>
+      if j.val = 0 then
+        @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec (planeBasis1 (H (Fin.last n)).normVec)
+      else
+        @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec (planeBasis2 (H (Fin.last n)).normVec)
+  let I := Finset.filter (fun i => w_vec i ≠ 0) Finset.univ
+  let m := I.card
+  have hm : m ≤ n := by
+    calc
+      m ≤ (Finset.univ : Finset (Fin n)).card := Finset.card_filter_le _ _
+      _ = n := Fintype.card_fin n
+  let emb : Fin m ≃ {i : Fin n // i ∈ I} := (I.orderIsoOfFin rfl).toEquiv
+  let L' : Fin m → Line2 := fun j =>
+    let i := (emb j).val
+    have hw : w_vec i ≠ 0 := by
+      have := (emb j).property
+      rw [Finset.mem_filter] at this
+      exact this.2
+    let sq_u := @inner ℝ Space3 _ (H (Fin.last n)).normVec (H (Fin.last n)).normVec
+    let p0 := ((H (Fin.last n)).offset / sq_u) • (H (Fin.last n)).normVec
+    let ci := (H (Fin.castSucc i)).offset - @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec p0
+    ⟨w_vec i, hw, ci⟩
+  have hp_not_line : ∀ (σ : {σ // σ ∈ split_sigs}) (j : Fin m),
+      p_rep σ ∉ (L' j).toSet := by
+    intro ⟨σ, hσ⟩ j
+    let i := (emb j).val
+    have hq_in := (hq_rep σ hσ).1
+    have hq_not := not_mem_plane_of_mem_convexSpaceRegion (H ∘ Fin.castSucc) σ hq_in i
+    dsimp [Plane3.toSet] at hq_not
+    have h_id := inner_planePt3_sub (H (Fin.last n)) (p_rep ⟨σ, hσ⟩) (H (Fin.castSucc i))
+    rw [hp_rep ⟨σ, hσ⟩] at h_id
+    dsimp [L', Line2.toSet]
+    intro h_on
+    have : @inner ℝ Plane2 _ (L' j).normVec (p_rep ⟨σ, hσ⟩) - (L' j).offset = 0 := by
+      linarith
+    rw [← h_id] at this
+    exact hq_not (sub_eq_zero.mp this)
+  let τ_of : {σ // σ ∈ split_sigs} → SignVector2 m := fun σ =>
+    pointSignVector m L' ⟨p_rep σ, hp_not_line σ⟩
+  have hτ_nonempty : ∀ σ : {σ // σ ∈ split_sigs},
+      (convexPlaneRegion m L' (τ_of σ)).Nonempty := fun σ =>
+    ⟨p_rep σ, mem_convexPlaneRegion_pointSignVector m L' ⟨p_rep σ, hp_not_line σ⟩⟩
+  have h_inj : Function.Injective τ_of := by
+    intro ⟨σ₁, hσ₁⟩ ⟨σ₂, hσ₂⟩ h_eq
+    apply Subtype.ext
+    funext i
+    dsimp
+    have h_q1 := (hq_rep σ₁ hσ₁).1 i
+    have h_q2 := (hq_rep σ₂ hσ₂).1 i
+    dsimp [convexSpaceRegion] at h_q1 h_q2
+    by_cases hi : i ∈ I
+    · let j := emb.symm ⟨i, hi⟩
+      have hj_emb : (emb j).val = i := by
+        dsimp [j]
+        rw [Equiv.apply_symm_apply]
+      have h_eq_j := congr_fun h_eq j
+      dsimp [τ_of, pointSignVector] at h_eq_j
+      have h_id1 := inner_planePt3_sub (H (Fin.last n)) (p_rep ⟨σ₁, hσ₁⟩) (H (Fin.castSucc i))
+      have h_id2 := inner_planePt3_sub (H (Fin.last n)) (p_rep ⟨σ₂, hσ₂⟩) (H (Fin.castSucc i))
+      rw [hp_rep ⟨σ₁, hσ₁⟩] at h_id1
+      rw [hp_rep ⟨σ₂, hσ₂⟩] at h_id2
+      dsimp only at h_id1 h_id2
+      have h_norm1 : (L' j).normVec = w_vec i := by
+        dsimp [L']
+        rw [hj_emb]
+      have h_off1 : (L' j).offset =
+          (H (Fin.castSucc i)).offset -
+          @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec
+            (((H (Fin.last n)).offset /
+              @inner ℝ Space3 _ (H (Fin.last n)).normVec (H (Fin.last n)).normVec) •
+             (H (Fin.last n)).normVec) := by
+        dsimp [L']
+        rw [hj_emb]
+      change @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec (q_rep σ₁ hσ₁) - _ =
+        @inner ℝ Plane2 _ (w_vec i) (p_rep ⟨σ₁, hσ₁⟩) - _ at h_id1
+      change @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec (q_rep σ₂ hσ₂) - _ =
+        @inner ℝ Plane2 _ (w_vec i) (p_rep ⟨σ₂, hσ₂⟩) - _ at h_id2
+      rw [← h_norm1, ← h_off1] at h_id1 h_id2
+      have h_iff1 :
+          (H (Fin.castSucc i)).offset <
+            @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec (q_rep σ₁ hσ₁) ↔
+          (L' j).offset < @inner ℝ Plane2 _ (L' j).normVec (p_rep ⟨σ₁, hσ₁⟩) := by
+        constructor <;> intro h <;> linarith [h_id1]
+      have h_iff2 :
+          (H (Fin.castSucc i)).offset <
+            @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec (q_rep σ₂ hσ₂) ↔
+          (L' j).offset < @inner ℝ Plane2 _ (L' j).normVec (p_rep ⟨σ₂, hσ₂⟩) := by
+        constructor <;> intro h <;> linarith [h_id2]
+      have h_bool1 : σ₁ i =
+          decide ((L' j).offset < @inner ℝ Plane2 _ (L' j).normVec (p_rep ⟨σ₁, hσ₁⟩)) := by
+        cases h1 : σ₁ i
+        · rw [h1] at h_q1
+          dsimp at h_q1
+          have : ¬ (L' j).offset < @inner ℝ Plane2 _ (L' j).normVec (p_rep ⟨σ₁, hσ₁⟩) := by
+            intro h
+            have := h_iff1.mpr h
+            linarith
+          rw [decide_eq_false this]
+        · rw [h1] at h_q1
+          dsimp at h_q1
+          have : (L' j).offset < @inner ℝ Plane2 _ (L' j).normVec (p_rep ⟨σ₁, hσ₁⟩) :=
+            h_iff1.mp h_q1
+          rw [decide_eq_true this]
+      have h_bool2 : σ₂ i =
+          decide ((L' j).offset < @inner ℝ Plane2 _ (L' j).normVec (p_rep ⟨σ₂, hσ₂⟩)) := by
+        cases h2 : σ₂ i
+        · rw [h2] at h_q2
+          dsimp at h_q2
+          have : ¬ (L' j).offset < @inner ℝ Plane2 _ (L' j).normVec (p_rep ⟨σ₂, hσ₂⟩) := by
+            intro h
+            have := h_iff2.mpr h
+            linarith
+          rw [decide_eq_false this]
+        · rw [h2] at h_q2
+          dsimp at h_q2
+          have : (L' j).offset < @inner ℝ Plane2 _ (L' j).normVec (p_rep ⟨σ₂, hσ₂⟩) :=
+            h_iff2.mp h_q2
+          rw [decide_eq_true this]
+      rw [h_bool1, h_bool2, h_eq_j]
+    · rw [Finset.mem_filter] at hi
+      push Not at hi
+      have hw_zero := hi (Finset.mem_univ i)
+      have h_p0_1 := inner_planePt3_eq_p0_of_w_zero (H (Fin.last n)) (p_rep ⟨σ₁, hσ₁⟩)
+        (H (Fin.castSucc i)) hw_zero
+      have h_p0_2 := inner_planePt3_eq_p0_of_w_zero (H (Fin.last n)) (p_rep ⟨σ₂, hσ₂⟩)
+        (H (Fin.castSucc i)) hw_zero
+      rw [hp_rep ⟨σ₁, hσ₁⟩] at h_p0_1
+      rw [hp_rep ⟨σ₂, hσ₂⟩] at h_p0_2
+      dsimp only at h_p0_1 h_p0_2
+      cases h1 : σ₁ i <;> cases h2 : σ₂ i
+      · rfl
+      · rw [h1] at h_q1
+        rw [h2] at h_q2
+        dsimp at h_q1 h_q2
+        rw [h_p0_1] at h_q1
+        rw [h_p0_2] at h_q2
+        linarith
+      · rw [h1] at h_q1
+        rw [h2] at h_q2
+        dsimp at h_q1 h_q2
+        rw [h_p0_1] at h_q1
+        rw [h_p0_2] at h_q2
+        linarith
+      · rfl
+  let V := Finset.filter (fun τ => (convexPlaneRegion m L' τ).Nonempty) Finset.univ
+  have h_map_mem : ∀ σ : {σ // σ ∈ split_sigs}, τ_of σ ∈ V := by
+    intro σ
+    rw [Finset.mem_filter]
+    exact ⟨Finset.mem_univ _, hτ_nonempty σ⟩
+  let g : {σ // σ ∈ split_sigs} → V := fun σ => ⟨τ_of σ, h_map_mem σ⟩
+  have hg_inj : Function.Injective g := by
+    intro x y hxy
+    exact h_inj (Subtype.ext_iff.mp hxy)
+  have h_card_le := Fintype.card_le_of_injective g hg_inj
+  rw [Fintype.card_coe, Fintype.card_coe] at h_card_le
+  have h_plane_le := planeRegionsCount_le_maxPlaneRegions m L'
+  rw [planeRegionsCount_eq_card_nonempty_convexPlaneRegion] at h_plane_le
+  change V.card ≤ maxPlaneRegions m at h_plane_le
+  have h_mono := maxPlaneRegions_mono hm
+  have h_split_count : splitSpaceRegionsCount n H = split_sigs.card := rfl
+  rw [h_split_count]
+  omega
+
+/-- 3次元空間における平面追加の幾何学的漸化不等式:
+$(n+1)$ 枚目の平面を追加したとき、既存の $n$ 枚の平面との交わりで生じる2次元領域数は高々 $S(n)$ であり、
+空間領域数の増加量は高々 $S(n) = \mathrm{maxPlaneRegions } n$ である。 -/
 lemma spaceRegionsCount_succ_le (n : ℕ) (H : Fin (n + 1) → Plane3) :
     spaceRegionsCount (n + 1) H ≤
       spaceRegionsCount n (H ∘ Fin.castSucc) + maxPlaneRegions n := by
-  sorry
+  have h_split := spaceRegionsCount_succ_le_add_split n H
+  have h_split_le := splitSpaceRegionsCount_le_maxPlaneRegions n H
+  omega
 
 /-- 3次元空間における幾何学的領域数の最大値上界定理:
 任意の $n$ 枚の平面配置 $H$ による空間領域数 $T(H)$ は、代数公式 $T_{\max}(n)$ 以下である。
