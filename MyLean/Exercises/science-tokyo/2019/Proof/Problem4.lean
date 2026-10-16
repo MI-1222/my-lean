@@ -4042,6 +4042,152 @@ lemma splitSpaceRegionsCount_eq_of_general_position (n : ℕ) (H : Fin (n + 1) �
   have h_ge := maxPlaneRegions_le_splitSpaceRegionsCount n H hgen
   omega
 
+/-- 最後の平面と平行でないことのみを仮定した、領域属人性補題。 -/
+lemma mem_convexSpaceRegion_of_mem_convexPlaneRegion' (n : ℕ) (H : Fin (n + 1) → Plane3)
+    (h_not_par : ∀ i : Fin n, ¬ parallelPlanes (H (Fin.castSucc i)) (H (Fin.last n)))
+    (τ : SignVector2 n) {p : Plane2}
+    (hp : p ∈ convexPlaneRegion n (traceLinesOnLastPlane n H) τ) :
+    let q := planePt3 (H (Fin.last n)) p
+    q ∈ convexSpaceRegion n (H ∘ Fin.castSucc) τ ∧ q ∈ (H (Fin.last n)).toSet := by
+  let last := Fin.last n
+  let q := planePt3 (H last) p
+  have hq_last : q ∈ (H last).toSet := planePt3_mem_plane (H last) p
+  have hq_in : q ∈ convexSpaceRegion n (H ∘ Fin.castSucc) τ := by
+    dsimp [convexSpaceRegion, q]
+    intro i
+    dsimp [convexPlaneRegion] at hp
+    have hp_i := hp i
+    have h_id := inner_planePt3_sub (H last) p (H (Fin.castSucc i))
+    dsimp only at h_id
+    change @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec (planePt3 (H last) p) -
+      (H (Fin.castSucc i)).offset =
+      @inner ℝ Plane2 _ (traceLineNormVec (H last) (H (Fin.castSucc i))) p -
+        ((H (Fin.castSucc i)).offset -
+          @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec
+            (((H last).offset / @inner ℝ Space3 _ (H last).normVec (H last).normVec) •
+             (H last).normVec)) at h_id
+    have hw_ne := traceLineNormVec_ne_zero (H last) (H (Fin.castSucc i)) (h_not_par i)
+    have h_line :
+        (traceLinesOnLastPlane n H i).normVec = traceLineNormVec (H last) (H (Fin.castSucc i)) ∧
+        (traceLinesOnLastPlane n H i).offset = (H (Fin.castSucc i)).offset -
+          @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec
+            (((H last).offset / @inner ℝ Space3 _ (H last).normVec (H last).normVec) •
+             (H last).normVec) := by
+      dsimp [traceLinesOnLastPlane]
+      split_ifs with hw
+      · exact (hw_ne hw).elim
+      · exact ⟨rfl, rfl⟩
+    rw [h_line.1, h_line.2] at hp_i
+    cases hτ : τ i
+    · rw [hτ] at hp_i
+      dsimp at hp_i ⊢
+      linarith [h_id, hp_i]
+    · rw [hτ] at hp_i
+      dsimp at hp_i ⊢
+      linarith [h_id, hp_i]
+  exact ⟨hq_in, hq_last⟩
+
+/-- 3次元の平面交差条件から2次元交線系の一般位置性を導く定理。 -/
+lemma generalPositionLines_of_plane_intersections (n : ℕ) (H : Fin (n + 1) → Plane3)
+    (h_not_parallel_last : ∀ i : Fin n, ¬ parallelPlanes (H (Fin.castSucc i)) (H (Fin.last n)))
+    (h_inter3 : ∀ (i j : Fin n), i ≠ j →
+      ∃ q, (H (Fin.castSucc i)).toSet ∩ (H (Fin.castSucc j)).toSet ∩
+        (H (Fin.last n)).toSet = {q})
+    (h_inter4 : ∀ (i j l : Fin n), i ≠ j → j ≠ l → i ≠ l →
+      (H (Fin.castSucc i)).toSet ∩ (H (Fin.castSucc j)).toSet ∩
+        (H (Fin.castSucc l)).toSet ∩ (H (Fin.last n)).toSet = ∅) :
+    GeneralPositionLines n (traceLinesOnLastPlane n H) := by
+  let last := Fin.last n
+  constructor
+  · -- どの2直線も平行でない
+    intro i j hij h_par
+    rcases h_inter3 i j hij with ⟨q, hq_inter⟩
+    have hq_in : q ∈ (H (Fin.castSucc i)).toSet ∩
+        (H (Fin.castSucc j)).toSet ∩ (H last).toSet := by
+      rw [hq_inter]
+      exact Set.mem_singleton q
+    rcases hq_in with ⟨⟨hqi, hqj⟩, hqlast⟩
+    rcases exists_p_planePt3_eq (H last) hqlast with ⟨p, hp_q⟩
+    have hpi : p ∈ (traceLinesOnLastPlane n H i).toSet := by
+      rw [mem_traceLine_iff n H i (h_not_parallel_last i) p, hp_q]
+      exact hqi
+    have hpj : p ∈ (traceLinesOnLastPlane n H j).toSet := by
+      rw [mem_traceLine_iff n H j (h_not_parallel_last j) p, hp_q]
+      exact hqj
+    have h_line_eq := line2_eq_of_parallel_and_common_point
+      (traceLinesOnLastPlane n H i) (traceLinesOnLastPlane n H j) h_par hpi hpj
+    rcases exists_ne_mem_line2 (traceLinesOnLastPlane n H i) p hpi with ⟨p', hp'i, hp'_ne⟩
+    have hp'j : p' ∈ (traceLinesOnLastPlane n H j).toSet := by
+      rw [← h_line_eq]
+      exact hp'i
+    let q' := planePt3 (H last) p'
+    have hq'last : q' ∈ (H last).toSet := planePt3_mem_plane (H last) p'
+    have hq'i : q' ∈ (H (Fin.castSucc i)).toSet := by
+      rw [← mem_traceLine_iff n H i (h_not_parallel_last i) p']
+      exact hp'i
+    have hq'j : q' ∈ (H (Fin.castSucc j)).toSet := by
+      rw [← mem_traceLine_iff n H j (h_not_parallel_last j) p']
+      exact hp'j
+    have hq'_in : q' ∈ (H (Fin.castSucc i)).toSet ∩
+        (H (Fin.castSucc j)).toSet ∩ (H last).toSet :=
+      ⟨⟨hq'i, hq'j⟩, hq'last⟩
+    rw [hq_inter] at hq'_in
+    have hq'_eq_q : q' = q := Set.mem_singleton_iff.mp hq'_in
+    rw [← hp_q] at hq'_eq_q
+    have hp'_eq_p := planePt3_injective (H last) hq'_eq_q
+    exact hp'_ne hp'_eq_p
+  · -- どの3直線も1点で交わらない
+    intro i j l hij hjl hil
+    apply Set.eq_empty_of_subset_empty
+    intro p hp
+    rcases hp with ⟨⟨hpi, hpj⟩, hpl⟩
+    have hqi := (mem_traceLine_iff n H i (h_not_parallel_last i) p).mp hpi
+    have hqj := (mem_traceLine_iff n H j (h_not_parallel_last j) p).mp hpj
+    have hql := (mem_traceLine_iff n H l (h_not_parallel_last l) p).mp hpl
+    let q := planePt3 (H last) p
+    have hqlast : q ∈ (H last).toSet := planePt3_mem_plane (H last) p
+    have hq_all : q ∈ (H (Fin.castSucc i)).toSet ∩
+        (H (Fin.castSucc j)).toSet ∩
+        (H (Fin.castSucc l)).toSet ∩
+        (H last).toSet := ⟨⟨⟨hqi, hqj⟩, hql⟩, hqlast⟩
+    have h_empty := h_inter4 i j l hij hjl hil
+    rw [h_empty] at hq_all
+    exact hq_all
+
+/-- 交線系が一般の位置にあるとき、切断領域数は maxPlaneRegions n 以上である。 -/
+lemma maxPlaneRegions_le_splitSpaceRegionsCount_of_traceLines (n : ℕ) (H : Fin (n + 1) → Plane3)
+    (h_not_par : ∀ i : Fin n, ¬ parallelPlanes (H (Fin.castSucc i)) (H (Fin.last n)))
+    (hgen_lines : GeneralPositionLines n (traceLinesOnLastPlane n H)) :
+    maxPlaneRegions n ≤ splitSpaceRegionsCount n H := by
+  let L' := traceLinesOnLastPlane n H
+  have h_plane_eq := planeRegionsCount_eq_max_of_general_position n L' hgen_lines
+  rw [planeRegionsCount_eq_card_nonempty_convexPlaneRegion] at h_plane_eq
+  let V := Finset.filter (fun τ => (convexPlaneRegion n L' τ).Nonempty) Finset.univ
+  have hV_card : V.card = maxPlaneRegions n := h_plane_eq
+  let split_sigs := Finset.filter (fun σ =>
+    isSplitByPlane (convexSpaceRegion n (H ∘ Fin.castSucc) σ) (H (Fin.last n))) Finset.univ
+  have h_split_count : splitSpaceRegionsCount n H = split_sigs.card := rfl
+  have h_sub : V ⊆ split_sigs := by
+    intro τ hτ
+    rw [Finset.mem_filter] at hτ ⊢
+    refine ⟨hτ.1, ?_⟩
+    rcases hτ.2 with ⟨p, hp⟩
+    have hq := mem_convexSpaceRegion_of_mem_convexPlaneRegion' n H h_not_par τ hp
+    exact ⟨planePt3 (H (Fin.last n)) p, hq.1, hq.2⟩
+  have h_card_le := Finset.card_le_card h_sub
+  rw [hV_card] at h_card_le
+  rw [h_split_count]
+  exact h_card_le
+
+/-- 交線系が一般の位置にあるとき、切断領域数はちょうど maxPlaneRegions n である。 -/
+lemma splitSpaceRegionsCount_eq_of_traceLines (n : ℕ) (H : Fin (n + 1) → Plane3)
+    (h_not_par : ∀ i : Fin n, ¬ parallelPlanes (H (Fin.castSucc i)) (H (Fin.last n)))
+    (hgen_lines : GeneralPositionLines n (traceLinesOnLastPlane n H)) :
+    splitSpaceRegionsCount n H = maxPlaneRegions n := by
+  have h_le := splitSpaceRegionsCount_le_maxPlaneRegions n H
+  have h_ge := maxPlaneRegions_le_splitSpaceRegionsCount_of_traceLines n H h_not_par hgen_lines
+  omega
+
 /-- 一般の位置にある平面配置における領域数の漸化等式:
 一般の位置にある配置に新しい平面を追加したとき、
 増える立体領域の個数は、平面上の交線配置が定める最大平面領域数 $S(n)$ に一致する。
@@ -4694,6 +4840,18 @@ def plane_xy1 : Plane3 where
   normVec_ne_zero := v2_vec_ne_zero
   offset := 1
 
+lemma mem_plane_x0 (p : Space3) : p ∈ plane_x0.toSet ↔ p 0 = 0 := by
+  dsimp [Plane3.toSet, plane_x0]
+  rw [inner_v0_vec]
+
+lemma mem_plane_y0 (p : Space3) : p ∈ plane_y0.toSet ↔ p 1 = 0 := by
+  dsimp [Plane3.toSet, plane_y0]
+  rw [inner_v1_vec]
+
+lemma mem_plane_xy1 (p : Space3) : p ∈ plane_xy1.toSet ↔ p 0 + p 1 = 1 := by
+  dsimp [Plane3.toSet, plane_xy1]
+  rw [inner_v2_vec]
+
 /-- 三角柱をなす3平面 $x = 0$, $y = 0$, $x + y = 1$ からなる配置。 -/
 def H_three_prism : Fin 3 → Plane3 :=
   ![plane_x0, plane_y0, plane_xy1]
@@ -4927,47 +5085,6 @@ lemma spaceRegionsCount_hybrid_three :
   rw [H_hybrid_three_eq_three_prism]
   exact spaceRegionsCount_three_prism_eq_seven
 
-/-- ハイブリッド配置において、$n \ge 3$ 枚の平面に
-新しく $(n + 1)$ 枚目のモーメント平面を追加したとき、
-切断領域数は最大平面領域数 maxPlaneRegions n に一致する。 -/
-lemma splitSpaceRegionsCount_hybrid (n : ℕ) (hn : 3 ≤ n) :
-    splitSpaceRegionsCount n (H_hybrid (n + 1)) = maxPlaneRegions n := by
-  sorry
-
-/-- $n \ge 3$ のとき、ハイブリッド配置の領域数は
-第2位の領域数 secondSpaceRegionsFormula n に一致する。 -/
-lemma spaceRegionsCount_hybrid (n : ℕ) (hn : 3 ≤ n) :
-    spaceRegionsCount n (H_hybrid n) = secondSpaceRegionsFormula n := by
-  obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le hn
-  clear hn
-  induction k with
-  | zero =>
-    rw [spaceRegionsCount_hybrid_three]
-    have h3 := space_regions_n_three.2.1
-    exact h3.symm
-  | succ k ih =>
-    have h_assoc : 3 + (k + 1) = 3 + k + 1 := by omega
-    rw [h_assoc]
-    have h_succ := spaceRegionsCount_succ_eq_add_split (3 + k) (H_hybrid (3 + k + 1))
-    rw [H_hybrid_castSucc (3 + k)] at h_succ
-    rw [h_succ]
-    have h_split := splitSpaceRegionsCount_hybrid (3 + k) (by omega)
-    rw [h_split, ih]
-    have h_sec_m := problem_4_2_proof (3 + k) (by omega)
-    have h_sec_succ := problem_4_2_proof (3 + k + 1) (by omega)
-    have h_max_succ := maxSpaceRegions_succ (3 + k)
-    have h_form_m := problem_4_1_proof (3 + k)
-    have h_form_succ := problem_4_1_proof (3 + k + 1)
-    have h_pos : 1 ≤ maxSpaceRegionsFormula (3 + k) := by
-      rw [← h_form_m]
-      dsimp [maxSpaceRegions]
-      rw [Nat.choose_zero_right]
-      omega
-    have h_rec : maxSpaceRegionsFormula (3 + k + 1) =
-        maxSpaceRegionsFormula (3 + k) + maxPlaneRegions (3 + k) := by
-      rw [← h_form_succ, ← h_form_m, h_max_succ]
-    omega
-
 /-- 平面 $x = 0$ と平面 $y = 0$ は平行でない。 -/
 lemma not_parallel_plane_x0_plane_y0 :
     ¬ parallelPlanes plane_x0 plane_y0 := by
@@ -5101,6 +5218,234 @@ lemma distinctPlanes_hybrid (n : ℕ) :
   · have h_not := not_parallel_hybrid j i h
     have h_par := parallelPlanes_of_toSet_eq (H_hybrid n j) (H_hybrid n i) hij.symm
     exact h_not h_par
+
+/-- 平面 $x = 0$, $y = 0$ とモーメント平面の交わりはちょうど1点である。 -/
+lemma intersection_plane_x0_plane_y0_momentPlane {t : ℝ} (ht : t ≠ 0) :
+    ∃ q : Space3, plane_x0.toSet ∩ plane_y0.toSet ∩ (momentPlane t).toSet = {q} := by
+  let q : Space3 := (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![0, 0, t]
+  use q
+  ext p
+  simp only [Set.mem_inter_iff, mem_plane_x0, mem_plane_y0, mem_momentPlane,
+    Set.mem_singleton_iff]
+  constructor
+  · rintro ⟨⟨hx, hy⟩, hm⟩
+    have hz : p 2 = t := by
+      have hm' : t ^ 2 * (p 2 - t) = 0 := by
+        calc t ^ 2 * (p 2 - t) = (p 0 + t * p 1 + t ^ 2 * p 2 - t ^ 3) - p 0 - t * p 1 := by ring
+        _ = (t ^ 3 - t ^ 3) - 0 - t * 0 := by rw [hm, hx, hy]
+        _ = 0 := by ring
+      have ht2 : t ^ 2 ≠ 0 := pow_ne_zero 2 ht
+      have hz_sub := (mul_eq_zero.mp hm').resolve_left ht2
+      linarith
+    ext i
+    fin_cases i
+    · exact hx
+    · exact hy
+    · exact hz
+  · rintro rfl
+    refine ⟨⟨rfl, rfl⟩, ?_⟩
+    simp [q]
+    ring
+
+/-- 平面 $x = 0$, $x + y = 1$ とモーメント平面の交わりはちょうど1点である。 -/
+lemma intersection_plane_x0_plane_xy1_momentPlane {t : ℝ} (ht : t ≠ 0) :
+    ∃ q : Space3, plane_x0.toSet ∩ plane_xy1.toSet ∩ (momentPlane t).toSet = {q} := by
+  let q : Space3 := (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![0, 1, t - 1 / t]
+  use q
+  ext p
+  simp only [Set.mem_inter_iff, mem_plane_x0, mem_plane_xy1, mem_momentPlane,
+    Set.mem_singleton_iff]
+  constructor
+  · rintro ⟨⟨hx, hxy⟩, hm⟩
+    have hy : p 1 = 1 := by linarith
+    have h_t_inv : t ^ 2 * (1 / t) = t := by
+      rw [sq, mul_assoc, mul_one_div_cancel ht, mul_one]
+    have hz : p 2 = t - 1 / t := by
+      have hm' : t ^ 2 * (p 2 - (t - 1 / t)) = 0 := by
+        calc t ^ 2 * (p 2 - (t - 1 / t)) =
+            t ^ 2 * p 2 - t ^ 3 + t ^ 2 * (1 / t) := by ring
+        _ = t ^ 2 * p 2 - t ^ 3 + t := by rw [h_t_inv]
+        _ = (p 0 + t * p 1 + t ^ 2 * p 2 - t ^ 3) - p 0 - t * (p 1 - 1) := by ring
+        _ = (t ^ 3 - t ^ 3) - 0 - t * (1 - 1) := by rw [hm, hx, hy]
+        _ = 0 := by ring
+      have ht2 : t ^ 2 ≠ 0 := pow_ne_zero 2 ht
+      have hz_sub := (mul_eq_zero.mp hm').resolve_left ht2
+      linarith
+    ext i
+    fin_cases i
+    · exact hx
+    · exact hy
+    · exact hz
+  · rintro rfl
+    have h_t_inv : t ^ 2 * (1 / t) = t := by
+      rw [sq, mul_assoc, mul_one_div_cancel ht, mul_one]
+    refine ⟨⟨rfl, ?_⟩, ?_⟩
+    · simp [q]
+    · dsimp [q]
+      calc (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![0, 1, t - 1 / t] 0 +
+          t * (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![0, 1, t - 1 / t] 1 +
+          t ^ 2 * (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![0, 1, t - 1 / t] 2
+        = 0 + t * 1 + t ^ 2 * (t - 1 / t) := by simp
+      _ = t + t ^ 3 - t ^ 2 * (1 / t) := by ring
+      _ = t + t ^ 3 - t := by rw [h_t_inv]
+      _ = t ^ 3 := by ring
+
+/-- 平面 $y = 0$, $x + y = 1$ とモーメント平面の交わりはちょうど1点である。 -/
+lemma intersection_plane_y0_plane_xy1_momentPlane {t : ℝ} (ht : t ≠ 0) :
+    ∃ q : Space3, plane_y0.toSet ∩ plane_xy1.toSet ∩ (momentPlane t).toSet = {q} := by
+  let q : Space3 := (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![1, 0, t - 1 / t ^ 2]
+  use q
+  ext p
+  simp only [Set.mem_inter_iff, mem_plane_y0, mem_plane_xy1, mem_momentPlane,
+    Set.mem_singleton_iff]
+  constructor
+  · rintro ⟨⟨hy, hxy⟩, hm⟩
+    have hx : p 0 = 1 := by linarith
+    have ht2 : t ^ 2 ≠ 0 := pow_ne_zero 2 ht
+    have h_t2_inv : t ^ 2 * (1 / t ^ 2) = 1 := mul_one_div_cancel ht2
+    have hz : p 2 = t - 1 / t ^ 2 := by
+      have hm' : t ^ 2 * (p 2 - (t - 1 / t ^ 2)) = 0 := by
+        calc t ^ 2 * (p 2 - (t - 1 / t ^ 2)) =
+            t ^ 2 * p 2 - t ^ 3 + t ^ 2 * (1 / t ^ 2) := by ring
+        _ = t ^ 2 * p 2 - t ^ 3 + 1 := by rw [h_t2_inv]
+        _ = (p 0 + t * p 1 + t ^ 2 * p 2 - t ^ 3) - (p 0 - 1) - t * p 1 := by ring
+        _ = (t ^ 3 - t ^ 3) - (1 - 1) - t * 0 := by rw [hm, hx, hy]
+        _ = 0 := by ring
+      have hz_sub := (mul_eq_zero.mp hm').resolve_left ht2
+      linarith
+    ext i
+    fin_cases i
+    · exact hx
+    · exact hy
+    · exact hz
+  · rintro rfl
+    have ht2 : t ^ 2 ≠ 0 := pow_ne_zero 2 ht
+    have h_t2_inv : t ^ 2 * (1 / t ^ 2) = 1 := mul_one_div_cancel ht2
+    refine ⟨⟨rfl, ?_⟩, ?_⟩
+    · simp [q]
+    · dsimp [q]
+      calc (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![1, 0, t - 1 / t ^ 2] 0 +
+          t * (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![1, 0, t - 1 / t ^ 2] 1 +
+          t ^ 2 * (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![1, 0, t - 1 / t ^ 2] 2
+        = 1 + t * 0 + t ^ 2 * (t - 1 / t ^ 2) := by simp
+      _ = 1 + t ^ 3 - t ^ 2 * (1 / t ^ 2) := by ring
+      _ = 1 + t ^ 3 - 1 := by rw [h_t2_inv]
+      _ = t ^ 3 := by ring
+
+/-- 平面 $x = 0$ と2つのモーメント平面の交わりはちょうど1点である。 -/
+lemma intersection_plane_x0_two_momentPlanes {t₁ t₂ : ℝ} (h12 : t₁ ≠ t₂)
+    (h1 : t₁ ≠ 0) (h2 : t₂ ≠ 0) :
+    ∃ q : Space3, plane_x0.toSet ∩ (momentPlane t₁).toSet ∩ (momentPlane t₂).toSet = {q} := by
+  let q : Space3 := (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![0, -t₁ * t₂, t₁ + t₂]
+  use q
+  ext p
+  simp only [Set.mem_inter_iff, mem_plane_x0, mem_momentPlane, Set.mem_singleton_iff]
+  constructor
+  · rintro ⟨⟨hx, hm1⟩, hm2⟩
+    have hz : p 2 = t₁ + t₂ := by
+      have h_diff : (t₁ * t₂ * (t₁ - t₂)) * (p 2 - (t₁ + t₂)) = 0 := by
+        calc (t₁ * t₂ * (t₁ - t₂)) * (p 2 - (t₁ + t₂)) =
+            t₂ * (p 0 + t₁ * p 1 + t₁ ^ 2 * p 2 - t₁ ^ 3) -
+            t₁ * (p 0 + t₂ * p 1 + t₂ ^ 2 * p 2 - t₂ ^ 3) -
+            (t₂ - t₁) * p 0 := by ring
+        _ = t₂ * (t₁ ^ 3 - t₁ ^ 3) - t₁ * (t₂ ^ 3 - t₂ ^ 3) -
+            (t₂ - t₁) * 0 := by rw [hm1, hm2, hx]
+        _ = 0 := by ring
+      have h12' : t₁ - t₂ ≠ 0 := sub_ne_zero.mpr h12
+      have h_coeff : t₁ * t₂ * (t₁ - t₂) ≠ 0 := by
+        have h12_mul : t₁ * t₂ ≠ 0 := mul_ne_zero h1 h2
+        exact mul_ne_zero h12_mul h12'
+      have hz_sub := (mul_eq_zero.mp h_diff).resolve_left h_coeff
+      linarith
+    have hy : p 1 = -t₁ * t₂ := by
+      have hm1' : t₁ * (p 1 - (-t₁ * t₂)) = 0 := by
+        calc t₁ * (p 1 - (-t₁ * t₂)) =
+            (p 0 + t₁ * p 1 + t₁ ^ 2 * p 2 - t₁ ^ 3) - p 0 -
+            t₁ ^ 2 * (p 2 - (t₁ + t₂)) := by ring
+        _ = (t₁ ^ 3 - t₁ ^ 3) - 0 - t₁ ^ 2 * (t₁ + t₂ - (t₁ + t₂)) := by rw [hm1, hx, hz]
+        _ = 0 := by ring
+      have hy_sub := (mul_eq_zero.mp hm1').resolve_left h1
+      linarith
+    ext i
+    fin_cases i
+    · exact hx
+    · exact hy
+    · exact hz
+  · rintro rfl
+    refine ⟨⟨rfl, ?_⟩, ?_⟩
+    · dsimp [q]
+      calc (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![0, -t₁ * t₂, t₁ + t₂] 0 +
+          t₁ * (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![0, -t₁ * t₂, t₁ + t₂] 1 +
+          t₁ ^ 2 * (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![0, -t₁ * t₂, t₁ + t₂] 2
+        = 0 + t₁ * (-t₁ * t₂) + t₁ ^ 2 * (t₁ + t₂) := by simp
+      _ = t₁ ^ 3 := by ring
+    · dsimp [q]
+      calc (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![0, -t₁ * t₂, t₁ + t₂] 0 +
+          t₂ * (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![0, -t₁ * t₂, t₁ + t₂] 1 +
+          t₂ ^ 2 * (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![0, -t₁ * t₂, t₁ + t₂] 2
+        = 0 + t₂ * (-t₁ * t₂) + t₂ ^ 2 * (t₁ + t₂) := by simp
+      _ = t₂ ^ 3 := by ring
+
+/-- ハイブリッド配置において、最後の平面上に現れる交線系は一般の位置にある。
+どの2直線も平行でなく、どの3直線も1点で交わらない。 -/
+lemma generalPositionLines_hybrid (n : ℕ) (hn : 3 ≤ n) :
+    GeneralPositionLines n (traceLinesOnLastPlane n (H_hybrid (n + 1))) := by
+  have h_not_parallel_last : ∀ i : Fin n,
+      ¬ parallelPlanes ((H_hybrid (n + 1)) (Fin.castSucc i))
+        ((H_hybrid (n + 1)) (Fin.last n)) := by
+    intro i
+    have h_lt : Fin.castSucc i < Fin.last n := Fin.castSucc_lt_last i
+    exact not_parallel_hybrid (Fin.castSucc i) (Fin.last n) h_lt
+  sorry
+
+/-- ハイブリッド配置において、$n \ge 3$ 枚の平面に
+新しく $(n + 1)$ 枚目のモーメント平面を追加したとき、
+切断領域数は最大平面領域数 maxPlaneRegions n に一致する。
+交線系が一般の位置にあることから、2次元領域数定理を経由して導出される。 -/
+lemma splitSpaceRegionsCount_hybrid (n : ℕ) (hn : 3 ≤ n) :
+    splitSpaceRegionsCount n (H_hybrid (n + 1)) = maxPlaneRegions n := by
+  have h_not_par : ∀ i : Fin n,
+      ¬ parallelPlanes ((H_hybrid (n + 1)) (Fin.castSucc i))
+        ((H_hybrid (n + 1)) (Fin.last n)) := by
+    intro i
+    have h_lt : Fin.castSucc i < Fin.last n := Fin.castSucc_lt_last i
+    exact not_parallel_hybrid (Fin.castSucc i) (Fin.last n) h_lt
+  have hgen_lines := generalPositionLines_hybrid n hn
+  exact splitSpaceRegionsCount_eq_of_traceLines n (H_hybrid (n + 1)) h_not_par hgen_lines
+
+/-- $n \ge 3$ のとき、ハイブリッド配置の領域数は
+第2位の領域数 secondSpaceRegionsFormula n に一致する。 -/
+lemma spaceRegionsCount_hybrid (n : ℕ) (hn : 3 ≤ n) :
+    spaceRegionsCount n (H_hybrid n) = secondSpaceRegionsFormula n := by
+  obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le hn
+  clear hn
+  induction k with
+  | zero =>
+    rw [spaceRegionsCount_hybrid_three]
+    have h3 := space_regions_n_three.2.1
+    exact h3.symm
+  | succ k ih =>
+    have h_assoc : 3 + (k + 1) = 3 + k + 1 := by omega
+    rw [h_assoc]
+    have h_succ := spaceRegionsCount_succ_eq_add_split (3 + k) (H_hybrid (3 + k + 1))
+    rw [H_hybrid_castSucc (3 + k)] at h_succ
+    rw [h_succ]
+    have h_split := splitSpaceRegionsCount_hybrid (3 + k) (by omega)
+    rw [h_split, ih]
+    have h_sec_m := problem_4_2_proof (3 + k) (by omega)
+    have h_sec_succ := problem_4_2_proof (3 + k + 1) (by omega)
+    have h_max_succ := maxSpaceRegions_succ (3 + k)
+    have h_form_m := problem_4_1_proof (3 + k)
+    have h_form_succ := problem_4_1_proof (3 + k + 1)
+    have h_pos : 1 ≤ maxSpaceRegionsFormula (3 + k) := by
+      rw [← h_form_m]
+      dsimp [maxSpaceRegions]
+      rw [Nat.choose_zero_right]
+      omega
+    have h_rec : maxSpaceRegionsFormula (3 + k + 1) =
+        maxSpaceRegionsFormula (3 + k) + maxPlaneRegions (3 + k) := by
+      rw [← h_form_succ, ← h_form_m, h_max_succ]
+    omega
 
 /-- 一般の位置にある n 枚の平面配置に、切断領域数がちょうど S(n) - 1 となる
 新しい平面を追加したとき、得られる (n + 1) 枚の配置の領域数は
