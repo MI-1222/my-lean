@@ -317,10 +317,122 @@ open Classical in
 noncomputable def intersectingIndices (k : ℕ) (L : Fin (k + 1) → Line2) : Finset (Fin k) :=
   Finset.filter (fun i => hasIntersectionWithLast k L i) Finset.univ
 
+/-- 2次元平面内のベクトル $u = (u_0, u_1)$ に対する反時計回り90度回転直交ベクトル $v = (-u_1, u_0)$。 -/
+noncomputable def rot90 (u : Plane2) : Plane2 :=
+  EuclideanSpace.equiv (Fin 2) ℝ |>.symm fun i =>
+    if i.val = 0 then - (u 1) else u 0
+
+/-- ベクトルとその90度回転ベクトルの内積は常に0である。 -/
+lemma inner_rot90_self (u : Plane2) : @inner ℝ Plane2 _ u (rot90 u) = 0 := by
+  have h := PiLp.inner_apply (𝕜 := ℝ) (x := u) (y := rot90 u)
+  rw [h, Fin.sum_univ_two]
+  simp only [Real.inner_apply]
+  change u 0 * (- (u 1)) + u 1 * (u 0) = 0
+  ring
+
+/-- 90度回転ベクトルとの内積が0ならば、2つのベクトルは平行(スカラー倍)である。 -/
+lemma parallel_of_inner_rot90_zero (u₁ u₂ : Plane2) (hu₂ : u₂ ≠ 0)
+    (h_rot : @inner ℝ Plane2 _ u₁ (rot90 u₂) = 0) :
+    ∃ c : ℝ, u₁ = c • u₂ := by
+  have hu₂_sum : u₂ 0 ^ 2 + u₂ 1 ^ 2 ≠ 0 := by
+    intro h0
+    apply hu₂
+    ext i
+    fin_cases i
+    · have : u₂ 0 = 0 := by nlinarith
+      exact this
+    · have : u₂ 1 = 0 := by nlinarith
+      exact this
+  have h2 : - (u₂ 1) * u₁ 0 + u₂ 0 * u₁ 1 = 0 := by
+    have h := PiLp.inner_apply (𝕜 := ℝ) (x := u₁) (y := rot90 u₂)
+    rw [h, Fin.sum_univ_two] at h_rot
+    simp only [Real.inner_apply] at h_rot
+    change u₁ 0 * (- (u₂ 1)) + u₁ 1 * (u₂ 0) = 0 at h_rot
+    linarith
+  let c := (@inner ℝ Plane2 _ u₁ u₂) / (u₂ 0 ^ 2 + u₂ 1 ^ 2)
+  use c
+  have h_inner : @inner ℝ Plane2 _ u₁ u₂ = u₁ 0 * u₂ 0 + u₁ 1 * u₂ 1 := by
+    have h := PiLp.inner_apply (𝕜 := ℝ) (x := u₁) (y := u₂)
+    rw [h, Fin.sum_univ_two]
+    simp only [Real.inner_apply]
+  have h_c0 : c * u₂ 0 = u₁ 0 := by
+    dsimp [c]
+    rw [h_inner]
+    have h_mul : (u₁ 0 * u₂ 0 + u₁ 1 * u₂ 1) * u₂ 0 =
+        u₁ 0 * (u₂ 0 ^ 2 + u₂ 1 ^ 2) + u₂ 1 * (- (u₂ 1) * u₁ 0 + u₂ 0 * u₁ 1) := by ring
+    rw [h2, mul_zero, add_zero] at h_mul
+    rw [div_mul_eq_mul_div, h_mul]
+    exact mul_div_cancel_right₀ (u₁ 0) hu₂_sum
+  have h_c1 : c * u₂ 1 = u₁ 1 := by
+    dsimp [c]
+    rw [h_inner]
+    have h_mul : (u₁ 0 * u₂ 0 + u₁ 1 * u₂ 1) * u₂ 1 =
+        u₁ 1 * (u₂ 0 ^ 2 + u₂ 1 ^ 2) - u₂ 0 * (- (u₂ 1) * u₁ 0 + u₂ 0 * u₁ 1) := by ring
+    rw [h2, mul_zero, sub_zero] at h_mul
+    rw [div_mul_eq_mul_div, h_mul]
+    exact mul_div_cancel_right₀ (u₁ 1) hu₂_sum
+  ext i
+  fin_cases i
+  · exact h_c0.symm
+  · exact h_c1.symm
+
+/-- 直線 $L$ 上のパラメータ $t$ に対応する点。
+基準点 $(L.offset / ‖L.normVec‖^2) \cdot L.normVec + t \cdot (\text{rot}_{90} L.normVec)$。 -/
+noncomputable def linePt (L : Line2) (t : ℝ) : Plane2 :=
+  let u := L.normVec
+  let d := L.offset
+  let sq := @inner ℝ Plane2 _ u u
+  (d / sq) • u + t • rot90 u
+
+/-- パラメータ点は常に直線自身に属する。 -/
+lemma linePt_mem_line (L : Line2) (t : ℝ) : linePt L t ∈ L.toSet := by
+  dsimp [Line2.toSet, linePt]
+  rw [inner_add_right, inner_smul_right, inner_smul_right]
+  have h_rot := inner_rot90_self L.normVec
+  rw [h_rot, mul_zero, add_zero]
+  have hu_sq : @inner ℝ Plane2 _ L.normVec L.normVec ≠ 0 := by
+    intro h0
+    apply L.normVec_ne_zero
+    exact inner_self_eq_zero.mp h0
+  exact div_mul_cancel₀ L.offset hu_sq
+
+/-- 平行でない直線との交点を与える実数パラメータが存在する。 -/
+lemma exists_linePt_mem_of_not_parallel (L₁ L₂ : Line2) (h_not_par : ¬ parallelLines L₁ L₂) :
+    ∃ t : ℝ, linePt L₂ t ∈ L₁.toSet := by
+  have h_rot_ne : @inner ℝ Plane2 _ L₁.normVec (rot90 L₂.normVec) ≠ 0 := by
+    intro h_rot
+    apply h_not_par
+    exact parallel_of_inner_rot90_zero L₁.normVec L₂.normVec L₂.normVec_ne_zero h_rot
+  let u₂ := L₂.normVec
+  let d₂ := L₂.offset
+  let sq₂ := @inner ℝ Plane2 _ u₂ u₂
+  let p₀ := (d₂ / sq₂) • u₂
+  let t := (L₁.offset - @inner ℝ Plane2 _ L₁.normVec p₀) /
+           (@inner ℝ Plane2 _ L₁.normVec (rot90 u₂))
+  use t
+  dsimp [Line2.toSet, linePt, p₀, t]
+  rw [inner_add_right]
+  have h_smul : @inner ℝ Plane2 _ L₁.normVec
+      (((L₁.offset - @inner ℝ Plane2 _ L₁.normVec ((d₂ / sq₂) • u₂)) /
+      @inner ℝ Plane2 _ L₁.normVec (rot90 u₂)) • rot90 u₂) =
+      ((L₁.offset - @inner ℝ Plane2 _ L₁.normVec ((d₂ / sq₂) • u₂)) /
+      @inner ℝ Plane2 _ L₁.normVec (rot90 u₂)) * @inner ℝ Plane2 _ L₁.normVec (rot90 u₂) := by
+    exact inner_smul_right L₁.normVec _ _
+  rw [h_smul]
+  have h_cancel : ((L₁.offset - @inner ℝ Plane2 _ L₁.normVec ((d₂ / sq₂) • u₂)) /
+      @inner ℝ Plane2 _ L₁.normVec (rot90 u₂)) * @inner ℝ Plane2 _ L₁.normVec (rot90 u₂) =
+      L₁.offset - @inner ℝ Plane2 _ L₁.normVec ((d₂ / sq₂) • u₂) :=
+    div_mul_cancel₀ _ h_rot_ne
+  rw [h_cancel]
+  ring
+
+open Classical in
 /-- 直線 $L_{k}$ 上の基準点と方向ベクトルに対し、第 $i$ 直線との交点を与える実数パラメータ。
-交点方程式の一意な解に対応する代表元。 -/
-noncomputable def rawIntersectionParam (k : ℕ) (_L : Fin (k + 1) → Line2) (_i : Fin k) : ℝ :=
-  Classical.choose (⟨0, trivial⟩ : ∃ _ : ℝ, True)
+交点方程式を満たす実数 $t$ の代表元。 -/
+noncomputable def rawIntersectionParam (k : ℕ) (L : Fin (k + 1) → Line2) (i : Fin k) : ℝ :=
+  if h : ∃ t : ℝ, linePt (L (Fin.last k)) t ∈ (L (Fin.castSucc i)).toSet then
+    Classical.choose h
+  else 0
 
 /-- 既存の $k$ 本の直線と $(k+1)$ 本目の直線との交点に対応する直線上のパラメータ集合。
 平行でない各直線 $L_i$ との交点パラメータの像として定義される。 -/
@@ -826,6 +938,7 @@ lemma GeneralPositionLines.castSucc (k : ℕ) (L : Fin (k + 1) → Line2)
     have hil' : Fin.castSucc i ≠ Fin.castSucc l := fun h => hil (Fin.castSucc_inj.mp h)
     exact hgen.2 (Fin.castSucc i) (Fin.castSucc j) (Fin.castSucc l) hij' hjl' hil'
 
+open Classical in
 /-- 一般の位置にある直線配置において、第 $(k+1)$ 直線と既存の直線の交点はすべて相異なり、
 ちょうど $k$ 個存在する。
 - どの2直線も平行でないため、交点インデックス集合は Fin k 全体となる。
@@ -844,7 +957,32 @@ lemma card_lineIntersectionParams_eq_of_general_position (k : ℕ) (L : Fin (k +
   have h_inj : Function.Injective (rawIntersectionParam k L) := by
     intro i j hij
     by_contra h_ne
-    sorry
+    have h_not_par_i := hgen.1 (Fin.castSucc i) (Fin.last k) (ne_of_lt (Fin.castSucc_lt_last i))
+    have h_not_par_j := hgen.1 (Fin.castSucc j) (Fin.last k) (ne_of_lt (Fin.castSucc_lt_last j))
+    have h_ex_i : ∃ t, linePt (L (Fin.last k)) t ∈ (L (Fin.castSucc i)).toSet :=
+      exists_linePt_mem_of_not_parallel _ _ h_not_par_i
+    have h_ex_j : ∃ t, linePt (L (Fin.last k)) t ∈ (L (Fin.castSucc j)).toSet :=
+      exists_linePt_mem_of_not_parallel _ _ h_not_par_j
+    dsimp [rawIntersectionParam] at hij
+    simp only [h_ex_i, h_ex_j, dite_true] at hij
+    have ti := Classical.choose_spec h_ex_i
+    have tj := Classical.choose_spec h_ex_j
+    have h_eq_t : Classical.choose h_ex_i = Classical.choose h_ex_j := hij
+    let p := linePt (L (Fin.last k)) (Classical.choose h_ex_i)
+    have hp_i : p ∈ (L (Fin.castSucc i)).toSet := ti
+    have hp_j : p ∈ (L (Fin.castSucc j)).toSet := by
+      change linePt (L (Fin.last k)) (Classical.choose h_ex_i) ∈ (L (Fin.castSucc j)).toSet
+      rw [h_eq_t]
+      exact tj
+    have hp_k : p ∈ (L (Fin.last k)).toSet := linePt_mem_line _ _
+    have h_empty := hgen.2 (Fin.castSucc i) (Fin.castSucc j) (Fin.last k)
+      (fun h => h_ne (Fin.castSucc_inj.mp h))
+      (ne_of_lt (Fin.castSucc_lt_last j))
+      (ne_of_lt (Fin.castSucc_lt_last i))
+    have hp_inter : p ∈ (L (Fin.castSucc i)).toSet ∩ (L (Fin.castSucc j)).toSet ∩
+        (L (Fin.last k)).toSet := ⟨⟨hp_i, hp_j⟩, hp_k⟩
+    rw [h_empty] at hp_inter
+    exact hp_inter
   rw [Finset.card_image_of_injective _ h_inj]
   exact Fintype.card_fin k
 
