@@ -4896,6 +4896,27 @@ lemma spaceRegionsCount_three_prism :
     ∃ (H : Fin 3 → Plane3), DistinctPlanes 3 H ∧ spaceRegionsCount 3 H = 7 :=
   ⟨H_three_prism, distinctPlanes_three_prism, spaceRegionsCount_three_prism_eq_seven⟩
 
+/-- 一般の位置にある n 枚の平面配置に、切断領域数がちょうど S(n) - 1 となる
+新しい平面を追加したとき、得られる (n + 1) 枚の配置の領域数は
+第2位の領域数 secondSpaceRegionsFormula (n + 1) に一致する。 -/
+lemma spaceRegionsCount_eq_second_of_split_eq_pred (n : ℕ) (hn : 1 ≤ n)
+    (H : Fin (n + 1) → Plane3)
+    (hgen : GeneralPositionPlanes n (H ∘ Fin.castSucc))
+    (hsplit : splitSpaceRegionsCount n H = maxPlaneRegions n - 1) :
+    spaceRegionsCount (n + 1) H = secondSpaceRegionsFormula (n + 1) := by
+  have h_add := spaceRegionsCount_succ_eq_add_split n H
+  have h_prev :=
+    spaceRegionsCount_eq_max_of_general_position n (H ∘ Fin.castSucc) hgen
+  have h_max_succ := maxSpaceRegions_succ n
+  have h_sec := problem_4_2_proof (n + 1) (by omega)
+  have h_form_n := problem_4_1_proof n
+  have h_form_succ := problem_4_1_proof (n + 1)
+  have h_S_pos : 1 ≤ maxPlaneRegions n := by
+    dsimp [maxPlaneRegions]
+    rw [Nat.choose_zero_right]
+    omega
+  omega
+
 /-- 第2位の領域数を達成する相異なる平面配置が存在する。 -/
 lemma exists_planes_secondSpaceRegions (n : ℕ) (hn : 2 ≤ n) :
     ∃ (H : Fin n → Plane3), DistinctPlanes n H ∧
