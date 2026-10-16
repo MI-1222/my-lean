@@ -3423,6 +3423,28 @@ lemma GeneralPositionPlanes.castSucc (n : ℕ) (H : Fin (n + 1) → Plane3)
     exact hgen.2.2 (Fin.castSucc i) (Fin.castSucc j) (Fin.castSucc l) (Fin.castSucc m)
       hij' hjl' hlm' hil' him' hjm'
 
+/-- 3次元一般位置にある平面配置は添字の置換によって不変である。 -/
+lemma GeneralPositionPlanes.comp_equiv (n : ℕ) (H : Fin n → Plane3) (e : Fin n ≃ Fin n)
+    (hgen : GeneralPositionPlanes n H) : GeneralPositionPlanes n (H ∘ e) := by
+  rcases hgen with ⟨h1, h2, h3⟩
+  refine ⟨?_, ?_, ?_⟩
+  · intro a b hab
+    have h_ne : e a ≠ e b := e.injective.ne hab
+    exact h1 (e a) (e b) h_ne
+  · intro a b c hab hbc hac
+    have hab' : e a ≠ e b := e.injective.ne hab
+    have hbc' : e b ≠ e c := e.injective.ne hbc
+    have hac' : e a ≠ e c := e.injective.ne hac
+    exact h2 (e a) (e b) (e c) hab' hbc' hac'
+  · intro a b c d hab hbc hcd hac had hbd
+    have hab' : e a ≠ e b := e.injective.ne hab
+    have hbc' : e b ≠ e c := e.injective.ne hbc
+    have hcd' : e c ≠ e d := e.injective.ne hcd
+    have hac' : e a ≠ e c := e.injective.ne hac
+    have had' : e a ≠ e d := e.injective.ne had
+    have hbd' : e b ≠ e d := e.injective.ne hbd
+    exact h3 (e a) (e b) (e c) (e d) hab' hbc' hcd' hac' had' hbd'
+
 /-- 退化時や平行時に用いるデフォルトの2次元直線。 -/
 def defaultLine2 : Line2 :=
   ⟨(WithLp.equiv 2 (Fin 2 → ℝ)).symm fun j => if j.val = 0 then 1 else 0,
@@ -6300,12 +6322,245 @@ theorem problem_4_3_proof (n : ℕ) (_hn : 3 ≤ n) :
     simp only [h4, ↓reduceIte]
     omega
 
+lemma card_filter_pair_eq_four (i j : Fin 4) (hij : i ≠ j) (bi bj : Bool) :
+    (Finset.filter (fun σ : Fin 4 → Bool => σ i = bi ∧ σ j = bj) Finset.univ).card = 4 := by
+  revert i j hij bi bj
+  decide
+
+/-- 2つのインデックス i, j の符号の組が空であるならば、全体の領域数は高々 12 である。 -/
+lemma spaceRegionsCount_four_le_twelve_of_pair_empty
+    (H : Fin 4 → Plane3) (i j : Fin 4) (hij : i ≠ j)
+    (bi bj : Bool)
+    (h_empty : ∀ p : Space3, ¬ (
+      (if bi then (H i).offset < @inner ℝ Space3 _ (H i).normVec p
+       else @inner ℝ Space3 _ (H i).normVec p < (H i).offset) ∧
+      (if bj then (H j).offset < @inner ℝ Space3 _ (H j).normVec p
+       else @inner ℝ Space3 _ (H j).normVec p < (H j).offset))) :
+    spaceRegionsCount 4 H ≤ 12 := by
+  rw [spaceRegionsCount_eq_card_nonempty_convexSpaceRegion]
+  let bad_sigs := Finset.filter (fun σ : Fin 4 → Bool => σ i = bi ∧ σ j = bj) Finset.univ
+  have h_bad_empty : ∀ σ ∈ bad_sigs, ¬ (convexSpaceRegion 4 H σ).Nonempty := by
+    intro σ hσ ⟨p, hp⟩
+    rw [Finset.mem_filter] at hσ
+    have hpi := hp i
+    have hpj := hp j
+    change (if σ i then (H i).offset < @inner ℝ Space3 _ (H i).normVec p
+            else @inner ℝ Space3 _ (H i).normVec p < (H i).offset) at hpi
+    change (if σ j then (H j).offset < @inner ℝ Space3 _ (H j).normVec p
+            else @inner ℝ Space3 _ (H j).normVec p < (H j).offset) at hpj
+    rw [hσ.2.1] at hpi
+    rw [hσ.2.2] at hpj
+    exact h_empty p ⟨hpi, hpj⟩
+  have h_sub : (Finset.filter (fun σ => (convexSpaceRegion 4 H σ).Nonempty) Finset.univ) ⊆
+      Finset.univ \ bad_sigs := by
+    intro σ hσ
+    rw [Finset.mem_sdiff]
+    refine ⟨Finset.mem_univ σ, ?_⟩
+    intro h_bad
+    exact h_bad_empty σ h_bad (Finset.mem_filter.mp hσ).2
+  have h_card_le := Finset.card_le_card h_sub
+  rw [Finset.card_sdiff] at h_card_le
+  rw [Finset.inter_univ] at h_card_le
+  have h_univ : (Finset.univ : Finset (Fin 4 → Bool)).card = 16 := by decide
+  have h_bad_card : bad_sigs.card = 4 := card_filter_pair_eq_four i j hij bi bj
+  omega
+
+/-- 2枚の相異なる平面が平行であるならば、少なくとも1組の符号は空集合である。 -/
+lemma exists_empty_pair_of_parallel_and_distinct (H₁ H₂ : Plane3)
+    (hpar : parallelPlanes H₁ H₂) (hdist : H₁.toSet ≠ H₂.toSet) :
+    ∃ b₁ b₂ : Bool, ∀ p : Space3, ¬ (
+      (if b₁ then H₁.offset < @inner ℝ Space3 _ H₁.normVec p
+       else @inner ℝ Space3 _ H₁.normVec p < H₁.offset) ∧
+      (if b₂ then H₂.offset < @inner ℝ Space3 _ H₂.normVec p
+       else @inner ℝ Space3 _ H₂.normVec p < H₂.offset)) := by
+  rcases hpar with ⟨c, hc⟩
+  have hc_ne : c ≠ 0 := by
+    intro hc0
+    have : H₁.normVec = 0 := by rw [hc, hc0, zero_smul]
+    exact H₁.normVec_ne_zero this
+  have h_inner : ∀ p : Space3,
+      @inner ℝ Space3 _ H₁.normVec p = c * @inner ℝ Space3 _ H₂.normVec p := by
+    intro p
+    rw [hc, inner_smul_left, conj_trivial]
+  rcases lt_or_gt_of_ne hc_ne with hc_neg | hc_pos
+  · -- c < 0
+    by_cases h_le : H₁.offset / c ≤ H₂.offset
+    · -- H₁.offset / c ≤ H₂.offset: b₁ = true, b₂ = true が空
+      use true, true
+      intro p ⟨hp1, hp2⟩
+      change H₁.offset < @inner ℝ Space3 _ H₁.normVec p at hp1
+      change H₂.offset < @inner ℝ Space3 _ H₂.normVec p at hp2
+      rw [h_inner] at hp1
+      have h1 : c * @inner ℝ Space3 _ H₂.normVec p < c * H₂.offset :=
+        mul_lt_mul_of_neg_left hp2 hc_neg
+      have h2 : H₁.offset < c * H₂.offset := lt_trans hp1 h1
+      have h3 : H₂.offset * c ≤ H₁.offset := (div_le_iff_of_neg hc_neg).mp h_le
+      rw [mul_comm] at h3
+      linarith
+    · -- H₂.offset < H₁.offset / c: b₁ = false, b₂ = false が空
+      have h_gt : H₂.offset < H₁.offset / c := not_le.mp h_le
+      use false, false
+      intro p ⟨hp1, hp2⟩
+      change @inner ℝ Space3 _ H₁.normVec p < H₁.offset at hp1
+      change @inner ℝ Space3 _ H₂.normVec p < H₂.offset at hp2
+      rw [h_inner] at hp1
+      have h1 : c * H₂.offset < c * @inner ℝ Space3 _ H₂.normVec p :=
+        mul_lt_mul_of_neg_left hp2 hc_neg
+      have h2 : c * H₂.offset < H₁.offset := lt_trans h1 hp1
+      have h3 : H₁.offset < H₂.offset * c := (lt_div_iff_of_neg hc_neg).mp h_gt
+      rw [mul_comm] at h3
+      linarith
+  · -- c > 0
+    have h_off_ne : H₁.offset / c ≠ H₂.offset := by
+      intro h_off_eq
+      apply hdist
+      ext p
+      dsimp [Plane3.toSet]
+      rw [h_inner]
+      constructor
+      · intro h1
+        have hc_ne' : c ≠ 0 := ne_of_gt hc_pos
+        have : @inner ℝ Space3 _ H₂.normVec p = H₁.offset / c := by
+          rw [← h1, mul_div_cancel_left₀ _ hc_ne']
+        rw [h_off_eq] at this
+        exact this
+      · intro h2
+        have hc_ne' : c ≠ 0 := ne_of_gt hc_pos
+        rw [h2, ← h_off_eq, mul_div_cancel₀ _ hc_ne']
+    rcases lt_or_gt_of_ne h_off_ne with h_lt | h_gt
+    · -- H₁.offset / c < H₂.offset: b₁ = false, b₂ = true が空
+      use false, true
+      intro p ⟨hp1, hp2⟩
+      change @inner ℝ Space3 _ H₁.normVec p < H₁.offset at hp1
+      change H₂.offset < @inner ℝ Space3 _ H₂.normVec p at hp2
+      rw [h_inner] at hp1
+      have h1 : c * H₂.offset < c * @inner ℝ Space3 _ H₂.normVec p :=
+        mul_lt_mul_of_pos_left hp2 hc_pos
+      have h2 : c * H₂.offset < H₁.offset := lt_trans h1 hp1
+      have h3 : H₁.offset < H₂.offset * c := (div_lt_iff₀ hc_pos).mp h_lt
+      rw [mul_comm] at h3
+      linarith
+    · -- H₂.offset < H₁.offset / c: b₁ = true, b₂ = false が空
+      use true, false
+      intro p ⟨hp1, hp2⟩
+      change H₁.offset < @inner ℝ Space3 _ H₁.normVec p at hp1
+      change @inner ℝ Space3 _ H₂.normVec p < H₂.offset at hp2
+      rw [h_inner] at hp1
+      have h1 : c * @inner ℝ Space3 _ H₂.normVec p < c * H₂.offset :=
+        mul_lt_mul_of_pos_left hp2 hc_pos
+      have h2 : H₁.offset < c * H₂.offset := lt_trans hp1 h1
+      have h3 : H₂.offset * c < H₁.offset := (lt_div_iff₀ hc_pos).mp h_gt
+      rw [mul_comm] at h3
+      linarith
+
+/-- 平行な2平面を含む4平面配置の領域数は高々12である。 -/
+lemma spaceRegionsCount_four_le_twelve_of_parallel (H : Fin 4 → Plane3)
+    (hdist : DistinctPlanes 4 H)
+    (hpar : ∃ i j, i ≠ j ∧ parallelPlanes (H i) (H j)) :
+    spaceRegionsCount 4 H ≤ 12 := by
+  rcases hpar with ⟨i, j, hij, hpar_ij⟩
+  have hdist_ij : (H i).toSet ≠ (H j).toSet := fun h => hij (hdist h)
+  rcases exists_empty_pair_of_parallel_and_distinct (H i) (H j) hpar_ij hdist_ij with
+    ⟨bi, bj, h_empty⟩
+  exact spaceRegionsCount_four_le_twelve_of_pair_empty H i j hij bi bj h_empty
+
+/-- 空間領域数は平面のインデックスの置換によって不変である。 -/
+lemma spaceRegionsCount_equiv (n : ℕ) (H : Fin n → Plane3) (e : Fin n ≃ Fin n) :
+    spaceRegionsCount n (H ∘ e) = spaceRegionsCount n H := by
+  dsimp [spaceRegionsCount]
+  have h_set : {x : Space3 | ∀ i, x ∉ (H (e i)).toSet} =
+      {x : Space3 | ∀ i, x ∉ (H i).toSet} := by
+    ext x
+    exact e.forall_congr (fun _ => Iff.rfl)
+  exact congrArg (fun (s : Set Space3) =>
+    Nat.card (ConnectedComponents (↥s))) h_set
+
+/-- 3枚の平面が一般の位置にあるとき、第4平面による切断領域数は5にはならない。 -/
+lemma splitSpaceRegionsCount_three_ne_five (H : Fin 4 → Plane3)
+    (hgen : GeneralPositionPlanes 3 (H ∘ Fin.castSucc))
+    (h_not_par : ∀ i : Fin 3,
+      ¬ parallelPlanes (H (Fin.castSucc i)) (H (Fin.last 3))) :
+    splitSpaceRegionsCount 3 H ≠ 5 := by
+  intro h5
+  have h_le := splitSpaceRegionsCount_le_maxPlaneRegions 3 H
+  have h_max3 : maxPlaneRegions 3 = 7 := rfl
+  let L' := traceLinesOnLastPlane 3 H
+  have hgen_lines_or : GeneralPositionLines 3 L' ∨ ¬ GeneralPositionLines 3 L' :=
+    Classical.em _
+  rcases hgen_lines_or with hgen_lines | hnot_gen
+  · have h7 := splitSpaceRegionsCount_eq_of_traceLines 3 H h_not_par hgen_lines
+    rw [h_max3] at h7
+    omega
+  · have h_split_cases : splitSpaceRegionsCount 3 H ≤ 4 ∨
+        splitSpaceRegionsCount 3 H = 6 ∨
+        splitSpaceRegionsCount 3 H = 7 := by
+      sorry
+    rcases h_split_cases with hle4 | heq6 | heq7 <;> omega
+
+/-- どの2平面も平行でなく、どの3平面も一般の位置にない4平面配置の領域数は高々11である。 -/
+lemma spaceRegionsCount_four_le_eleven_of_not_general (H : Fin 4 → Plane3)
+    (h_not_par : ∀ i j, i ≠ j → ¬ parallelPlanes (H i) (H j))
+    (h_not_gen : ∀ i : Fin 4,
+      ¬ GeneralPositionPlanes 3 (H ∘ Fin.succAbove i)) :
+    spaceRegionsCount 4 H ≤ 11 := by
+  have h_max4 : maxPlaneRegions 4 = 11 := by decide
+  sorry
+
 /-- 4枚の相異なる平面配置において、
 領域数が13となる配置は存在しない。 -/
 lemma spaceRegionsCount_four_ne_thirteen (H : Fin 4 → Plane3)
     (hdist : DistinctPlanes 4 H) :
     spaceRegionsCount 4 H ≠ 13 := by
-  sorry
+  intro h13
+  by_cases hpar : ∃ i j, i ≠ j ∧ parallelPlanes (H i) (H j)
+  · have hle := spaceRegionsCount_four_le_twelve_of_parallel H hdist hpar
+    omega
+  · push Not at hpar
+    by_cases hgen : ∃ i : Fin 4, GeneralPositionPlanes 3 (H ∘ Fin.succAbove i)
+    · rcases hgen with ⟨i, hi⟩
+      let e : Fin 4 ≃ Fin 4 := Equiv.swap i (Fin.last 3)
+      let H' := H ∘ e
+      have h13' : spaceRegionsCount 4 H' = 13 := by
+        rw [spaceRegionsCount_equiv 4 H e, h13]
+      have hgen' : GeneralPositionPlanes 3 (H' ∘ Fin.castSucc) := by
+        fin_cases i
+        · let τ : Fin 3 ≃ Fin 3 := Equiv.swap 0 1 * Equiv.swap 0 2
+          have h_eq : H' ∘ Fin.castSucc = (H ∘ Fin.succAbove 0) ∘ τ := by
+            ext j; fin_cases j <;> rfl
+          rw [h_eq]
+          exact GeneralPositionPlanes.comp_equiv 3 (H ∘ Fin.succAbove 0) τ hi
+        · let τ : Fin 3 ≃ Fin 3 := Equiv.swap 1 2
+          have h_eq : H' ∘ Fin.castSucc = (H ∘ Fin.succAbove 1) ∘ τ := by
+            ext j; fin_cases j <;> rfl
+          rw [h_eq]
+          exact GeneralPositionPlanes.comp_equiv 3 (H ∘ Fin.succAbove 1) τ hi
+        · let τ : Fin 3 ≃ Fin 3 := Equiv.refl (Fin 3)
+          have h_eq : H' ∘ Fin.castSucc = (H ∘ Fin.succAbove 2) ∘ τ := by
+            ext j; fin_cases j <;> rfl
+          rw [h_eq]
+          exact GeneralPositionPlanes.comp_equiv 3 (H ∘ Fin.succAbove 2) τ hi
+        · let τ : Fin 3 ≃ Fin 3 := Equiv.refl (Fin 3)
+          have h_eq : H' ∘ Fin.castSucc = (H ∘ Fin.succAbove 3) ∘ τ := by
+            ext j; fin_cases j <;> rfl
+          rw [h_eq]
+          exact GeneralPositionPlanes.comp_equiv 3 (H ∘ Fin.succAbove 3) τ hi
+      have h_not_par' : ∀ j : Fin 3,
+          ¬ parallelPlanes (H' (Fin.castSucc j)) (H' (Fin.last 3)) := by
+        intro j
+        apply hpar
+        exact e.injective.ne (Fin.castSucc_ne_last j)
+      have h_decomp := spaceRegionsCount_succ_eq_add_split 3 H'
+      have h_prev :=
+        spaceRegionsCount_eq_max_of_general_position 3 (H' ∘ Fin.castSucc) hgen'
+      have h_max3 : maxSpaceRegions 3 = 8 := rfl
+      rw [h_max3] at h_prev
+      rw [h13', h_prev] at h_decomp
+      have h_split5 : splitSpaceRegionsCount 3 H' = 5 := by omega
+      have h_ne5 := splitSpaceRegionsCount_three_ne_five H' hgen' h_not_par'
+      exact h_ne5 h_split5
+    · push Not at hgen
+      have hle := spaceRegionsCount_four_le_eleven_of_not_general H hpar hgen
+      omega
 
 /-- 3次元空間の任意の点 $(x, y, z)$。 -/
 def ptXYZ (x y z : ℝ) : Space3 :=
@@ -6694,6 +6949,82 @@ lemma spaceRegionsCount_four_twelve_eq_twelve :
   rw [hs]
   decide
 
+/-- 第3位の領域数を達成するためのハイブリッド配置（n ≥ 5 用）。
+2組の三角柱（交点欠損2）を初期骨格とし、以降はモーメント平面を追加する。 -/
+def H_third_hybrid (n : ℕ) (i : Fin n) : Plane3 :=
+  if i.val = 0 then plane_x0
+  else if i.val = 1 then plane_y0
+  else if i.val = 2 then plane_xy1
+  else if i.val = 3 then zPlane 0
+  else if i.val = 4 then zPlane 1
+  else momentPlane (i.val : ℝ)
+
+/-- 先頭n枚の平面は、n枚の配置と完全に一致する。 -/
+lemma H_third_hybrid_castSucc (n : ℕ) :
+    H_third_hybrid (n + 1) ∘ Fin.castSucc = H_third_hybrid n := by
+  ext ⟨i, hi⟩
+  dsimp [H_third_hybrid]
+
+/-- H_third_hybrid は相異なる平面配置である。 -/
+lemma distinctPlanes_third_hybrid (n : ℕ) (hn : 5 ≤ n) :
+    DistinctPlanes n (H_third_hybrid n) := by
+  sorry
+
+/-- n = 5 のとき、配置の領域数はちょうど 24 である。 -/
+lemma spaceRegionsCount_third_hybrid_five :
+    spaceRegionsCount 5 (H_third_hybrid 5) = 24 := by
+  sorry
+
+/-- n ≥ 5 のとき、モーメント平面を追加したときの切断領域数は最大値に一致する。 -/
+lemma splitSpaceRegionsCount_third_hybrid (n : ℕ) (hn : 5 ≤ n) :
+    splitSpaceRegionsCount n (H_third_hybrid (n + 1)) = maxPlaneRegions n := by
+  sorry
+
+/-- n ≥ 5 のとき、H_third_hybrid の領域数は第3位の領域数に一致する。 -/
+lemma spaceRegionsCount_third_hybrid (n : ℕ) (hn : 5 ≤ n) :
+    spaceRegionsCount n (H_third_hybrid n) = thirdSpaceRegionsFormula n := by
+  obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le hn
+  clear hn
+  induction k with
+  | zero =>
+    change spaceRegionsCount 5 (H_third_hybrid 5) = thirdSpaceRegionsFormula 5
+    have h_form5 : thirdSpaceRegionsFormula 5 = 24 := by decide
+    rw [h_form5, spaceRegionsCount_third_hybrid_five]
+  | succ k ih =>
+    have h_assoc : 5 + (k + 1) = 5 + k + 1 := by omega
+    rw [h_assoc]
+    have h_succ :=
+      spaceRegionsCount_succ_eq_add_split (5 + k) (H_third_hybrid (5 + k + 1))
+    rw [H_third_hybrid_castSucc (5 + k)] at h_succ
+    rw [h_succ]
+    have h_split := splitSpaceRegionsCount_third_hybrid (5 + k) (by omega)
+    rw [h_split, ih]
+    have h_third_m : thirdSpaceRegionsFormula (5 + k) =
+        maxSpaceRegionsFormula (5 + k) - 2 := by
+      have h := problem_4_3_proof (5 + k) (by omega)
+      have hne : 5 + k ≠ 4 := by omega
+      simp only [hne, ↓reduceIte] at h
+      exact h
+    have h_third_succ : thirdSpaceRegionsFormula (5 + k + 1) =
+        maxSpaceRegionsFormula (5 + k + 1) - 2 := by
+      have h := problem_4_3_proof (5 + k + 1) (by omega)
+      have hne : 5 + k + 1 ≠ 4 := by omega
+      simp only [hne, ↓reduceIte] at h
+      exact h
+    have h_max_succ := maxSpaceRegions_succ (5 + k)
+    have h_form_m := problem_4_1_proof (5 + k)
+    have h_form_succ := problem_4_1_proof (5 + k + 1)
+    have h_pos : 2 ≤ maxSpaceRegionsFormula (5 + k) := by
+      rw [← h_form_m]
+      dsimp [maxSpaceRegions]
+      rw [Nat.choose_zero_right]
+      have hc1 : (5 + k).choose 1 = 5 + k := Nat.choose_one_right (5 + k)
+      omega
+    have h_rec : maxSpaceRegionsFormula (5 + k + 1) =
+        maxSpaceRegionsFormula (5 + k) + maxPlaneRegions (5 + k) := by
+      rw [← h_form_succ, ← h_form_m, h_max_succ]
+    omega
+
 /-- 第3位の領域数を達成する相異なる平面配置が存在する。 -/
 lemma exists_planes_thirdSpaceRegions (n : ℕ) (hn : 3 ≤ n) :
     ∃ (H : Fin n → Plane3), DistinctPlanes n H ∧
@@ -6706,7 +7037,8 @@ lemma exists_planes_thirdSpaceRegions (n : ℕ) (hn : 3 ≤ n) :
     · refine ⟨H_four_twelve, distinctPlanes_four_twelve, ?_⟩
       have h4 : thirdSpaceRegionsFormula 4 = 12 := space_regions_n_four.2.2
       rw [h4, spaceRegionsCount_four_twelve_eq_twelve]
-    · sorry
+    · refine ⟨H_third_hybrid n, distinctPlanes_third_hybrid n hn5,
+        spaceRegionsCount_third_hybrid n hn5⟩
 
 /-- 【第4問 (3) の幾何学的解答】
 n ≥ 3 のとき、第2位未満の任意の配置の領域数は
