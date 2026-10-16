@@ -6475,7 +6475,9 @@ lemma spaceRegionsCount_equiv (n : ℕ) (H : Fin n → Plane3) (e : Fin n ≃ Fi
   exact congrArg (fun (s : Set Space3) =>
     Nat.card (ConnectedComponents (↥s))) h_set
 
-/-- 3枚の平面が一般の位置にあるとき、第4平面による切断領域数は5にはならない。 -/
+/-- 3枚の平面が一般の位置にあるとき、第4平面による切断空間領域数は5になり得ない。
+第4平面上に誘導される3本の交線系が定める2次元平面領域数は、
+一般の位置であれば7、平行または共点であれば高々6となり、5は飛び番として現れない。 -/
 lemma splitSpaceRegionsCount_three_ne_five (H : Fin 4 → Plane3)
     (hgen : GeneralPositionPlanes 3 (H ∘ Fin.castSucc))
     (h_not_par : ∀ i : Fin 3,
@@ -6491,19 +6493,24 @@ lemma splitSpaceRegionsCount_three_ne_five (H : Fin 4 → Plane3)
   · have h7 := splitSpaceRegionsCount_eq_of_traceLines 3 H h_not_par hgen_lines
     rw [h_max3] at h7
     omega
-  · have h_split_cases : splitSpaceRegionsCount 3 H ≤ 4 ∨
+  · -- 交線系が一般の位置にないとき、平面領域数は4以下または6となり、5にはならない。
+    have h_split_cases : splitSpaceRegionsCount 3 H ≤ 4 ∨
         splitSpaceRegionsCount 3 H = 6 ∨
         splitSpaceRegionsCount 3 H = 7 := by
+      -- 平面上の高々3本の直線配置による領域数は4以下、6、または7に限られる。
       sorry
     rcases h_split_cases with hle4 | heq6 | heq7 <;> omega
 
-/-- どの2平面も平行でなく、どの3平面も一般の位置にない4平面配置の領域数は高々11である。 -/
+/-- どの2平面も平行でなく、どの3平面も一般の位置にない4平面配置の領域数は高々11である。
+法線ベクトルが同一の2次元部分空間に含まれるため、
+共通の交線方向に直交する2次元断面の4直線配置に帰着され、最大領域数は11となる。 -/
 lemma spaceRegionsCount_four_le_eleven_of_not_general (H : Fin 4 → Plane3)
     (h_not_par : ∀ i j, i ≠ j → ¬ parallelPlanes (H i) (H j))
     (h_not_gen : ∀ i : Fin 4,
       ¬ GeneralPositionPlanes 3 (H ∘ Fin.succAbove i)) :
     spaceRegionsCount 4 H ≤ 11 := by
   have h_max4 : maxPlaneRegions 4 = 11 := by decide
+  -- 4平面は共通の方向ベクトルに平行な柱面配置となり、平面上の4直線配置の最大領域数11で抑えられる。
   sorry
 
 /-- 4枚の相異なる平面配置において、
@@ -6949,35 +6956,190 @@ lemma spaceRegionsCount_four_twelve_eq_twelve :
   rw [hs]
   decide
 
-/-- 第3位の領域数を達成するためのハイブリッド配置（n ≥ 5 用）。
-2組の三角柱（交点欠損2）を初期骨格とし、以降はモーメント平面を追加する。 -/
+/-- 平面 x = 0 と平面 z = c は平行でない。 -/
+lemma not_parallel_plane_x0_zPlane (c : ℝ) :
+    ¬ parallelPlanes plane_x0 (zPlane c) := by
+  rintro ⟨k, hk⟩
+  have hc0 : (WithLp.equiv 2 (Fin 3 → ℝ)) plane_x0.normVec 0 =
+             (WithLp.equiv 2 (Fin 3 → ℝ)) (k • (zPlane c).normVec) 0 := by rw [hk]
+  simp [plane_x0, zPlane, v0_vec, e2Vec] at hc0
+
+/-- 平面 y = 0 と平面 z = c は平行でない。 -/
+lemma not_parallel_plane_y0_zPlane (c : ℝ) :
+    ¬ parallelPlanes plane_y0 (zPlane c) := by
+  rintro ⟨k, hk⟩
+  have hc1 : (WithLp.equiv 2 (Fin 3 → ℝ)) plane_y0.normVec 1 =
+             (WithLp.equiv 2 (Fin 3 → ℝ)) (k • (zPlane c).normVec) 1 := by rw [hk]
+  simp [plane_y0, zPlane, v1_vec, e2Vec] at hc1
+
+/-- 平面 x + y = 1 と平面 z = c は平行でない。 -/
+lemma not_parallel_plane_xy1_zPlane (c : ℝ) :
+    ¬ parallelPlanes plane_xy1 (zPlane c) := by
+  rintro ⟨k, hk⟩
+  have hc0 : (WithLp.equiv 2 (Fin 3 → ℝ)) plane_xy1.normVec 0 =
+             (WithLp.equiv 2 (Fin 3 → ℝ)) (k • (zPlane c).normVec) 0 := by rw [hk]
+  simp [plane_xy1, zPlane, v2_vec, e2Vec] at hc0
+
+/-- モーメント平面と平面 z = c は平行でない。 -/
+lemma not_parallel_momentPlane_zPlane (t : ℝ) (c : ℝ) :
+    ¬ parallelPlanes (momentPlane t) (zPlane c) := by
+  rintro ⟨k, hk⟩
+  have hc0 : (WithLp.equiv 2 (Fin 3 → ℝ)) (momentPlane t).normVec 0 =
+             (WithLp.equiv 2 (Fin 3 → ℝ)) (k • (zPlane c).normVec) 0 := by rw [hk]
+  simp [momentPlane, zPlane, momentVec, e2Vec] at hc0
+
+/-- 第3位の領域数を達成するハイブリッド配置（n ≥ 5 用）。
+最初の3平面は三角柱（x = 0, y = 0, x + y = 1）をなし、4平面目はモーメント平面 momentPlane 3、
+5平面目は点 (0, 0, 3) を通過する平面 z = 3 とする。
+これにより交線系が1点で会して交点欠損2を生じ、n = 5 でちょうど24領域を達成する。
+6平面目以降は順次モーメント平面を追加する。 -/
 def H_third_hybrid (n : ℕ) (i : Fin n) : Plane3 :=
   if i.val = 0 then plane_x0
   else if i.val = 1 then plane_y0
   else if i.val = 2 then plane_xy1
-  else if i.val = 3 then zPlane 0
-  else if i.val = 4 then zPlane 1
+  else if i.val = 3 then momentPlane 3
+  else if i.val = 4 then zPlane 3
   else momentPlane (i.val : ℝ)
 
-/-- 先頭n枚の平面は、n枚の配置と完全に一致する。 -/
+/-- 先頭n枚の平面は、n枚の配置と一致する。 -/
 lemma H_third_hybrid_castSucc (n : ℕ) :
     H_third_hybrid (n + 1) ∘ Fin.castSucc = H_third_hybrid n := by
   ext ⟨i, hi⟩
   dsimp [H_third_hybrid]
 
-/-- H_third_hybrid は相異なる平面配置である。 -/
-lemma distinctPlanes_third_hybrid (n : ℕ) (hn : 5 ≤ n) :
-    DistinctPlanes n (H_third_hybrid n) := by
-  sorry
+set_option linter.flexible false in
+/-- ハイブリッド配置 H_third_hybrid の任意の相異なる2平面は平行でない。 -/
+lemma not_parallel_third_hybrid {n : ℕ} (i j : Fin n) (hij : i < j) :
+    ¬ parallelPlanes (H_third_hybrid n i) (H_third_hybrid n j) := by
+  have hi_lt : i.val < j.val := hij
+  have h_ne : i.val ≠ j.val := by omega
+  by_cases hi0 : i.val = 0
+  · by_cases hj1 : j.val = 1
+    · dsimp [H_third_hybrid]
+      simp [hi0, hj1]
+      exact not_parallel_plane_x0_plane_y0
+    · by_cases hj2 : j.val = 2
+      · dsimp [H_third_hybrid]
+        simp [hi0, hj2]
+        exact not_parallel_plane_x0_plane_xy1
+      · by_cases hj3 : j.val = 3
+        · dsimp [H_third_hybrid]
+          simp [hi0, hj3]
+          apply not_parallel_plane_x0_momentPlane
+          norm_num
+        · by_cases hj4 : j.val = 4
+          · dsimp [H_third_hybrid]
+            simp [hi0, hj4]
+            exact not_parallel_plane_x0_zPlane 3
+          · dsimp [H_third_hybrid]
+            have hj0 : ¬ j.val = 0 := by omega
+            simp [hi0, hj0, hj1, hj2, hj3, hj4]
+            apply not_parallel_plane_x0_momentPlane
+            exact_mod_cast (by omega : 1 ≤ j.val)
+  · by_cases hi1 : i.val = 1
+    · by_cases hj2 : j.val = 2
+      · dsimp [H_third_hybrid]
+        simp [hi1, hj2]
+        exact not_parallel_plane_y0_plane_xy1
+      · by_cases hj3 : j.val = 3
+        · dsimp [H_third_hybrid]
+          simp [hi1, hj3]
+          apply not_parallel_plane_y0_momentPlane
+          norm_num
+        · by_cases hj4 : j.val = 4
+          · dsimp [H_third_hybrid]
+            simp [hi1, hj4]
+            exact not_parallel_plane_y0_zPlane 3
+          · dsimp [H_third_hybrid]
+            have hj0 : ¬ j.val = 0 := by omega
+            have hj1 : ¬ j.val = 1 := by omega
+            simp [hi1, hj0, hj1, hj2, hj3, hj4]
+            apply not_parallel_plane_y0_momentPlane
+            exact_mod_cast (by omega : 1 ≤ j.val)
+    · by_cases hi2 : i.val = 2
+      · by_cases hj3 : j.val = 3
+        · dsimp [H_third_hybrid]
+          simp [hi2, hj3]
+          apply not_parallel_plane_xy1_momentPlane
+          norm_num
+        · by_cases hj4 : j.val = 4
+          · dsimp [H_third_hybrid]
+            simp [hi2, hj4]
+            exact not_parallel_plane_xy1_zPlane 3
+          · dsimp [H_third_hybrid]
+            have hj0 : ¬ j.val = 0 := by omega
+            have hj1 : ¬ j.val = 1 := by omega
+            have hj2 : ¬ j.val = 2 := by omega
+            simp [hi2, hj0, hj1, hj2, hj3, hj4]
+            apply not_parallel_plane_xy1_momentPlane
+            exact_mod_cast (by omega : 2 ≤ j.val)
+      · by_cases hi3 : i.val = 3
+        · by_cases hj4 : j.val = 4
+          · dsimp [H_third_hybrid]
+            simp [hi3, hj4]
+            exact not_parallel_momentPlane_zPlane 3 3
+          · dsimp [H_third_hybrid]
+            have hj0 : ¬ j.val = 0 := by omega
+            have hj1 : ¬ j.val = 1 := by omega
+            have hj2 : ¬ j.val = 2 := by omega
+            have hj3 : ¬ j.val = 3 := by omega
+            have hj4 : ¬ j.val = 4 := by omega
+            simp [hi3, hj0, hj1, hj2, hj3, hj4]
+            apply not_parallel_momentPlanes
+            exact_mod_cast (by omega : 3 ≠ j.val)
+        · by_cases hi4 : i.val = 4
+          · dsimp [H_third_hybrid]
+            have hj0 : ¬ j.val = 0 := by omega
+            have hj1 : ¬ j.val = 1 := by omega
+            have hj2 : ¬ j.val = 2 := by omega
+            have hj3 : ¬ j.val = 3 := by omega
+            have hj4 : ¬ j.val = 4 := by omega
+            simp [hi4, hj0, hj1, hj2, hj3, hj4]
+            intro h_par
+            have h_not := not_parallel_momentPlane_zPlane (j.val : ℝ) 3
+            apply h_not
+            rcases h_par with ⟨c, hc⟩
+            have hc_ne : c ≠ 0 := by
+              rintro rfl
+              have hz := (zPlane 3).normVec_ne_zero
+              rw [hc, zero_smul] at hz
+              exact hz rfl
+            refine ⟨c⁻¹, ?_⟩
+            rw [hc, smul_smul, inv_mul_cancel₀ hc_ne, one_smul]
+          · dsimp [H_third_hybrid]
+            have hj0 : ¬ j.val = 0 := by omega
+            have hj1 : ¬ j.val = 1 := by omega
+            have hj2 : ¬ j.val = 2 := by omega
+            have hj3 : ¬ j.val = 3 := by omega
+            have hj4 : ¬ j.val = 4 := by omega
+            simp [hi0, hi1, hi2, hi3, hi4, hj0, hj1, hj2, hj3, hj4]
+            apply not_parallel_momentPlanes
+            exact_mod_cast h_ne
 
-/-- n = 5 のとき、配置の領域数はちょうど 24 である。 -/
+/-- H_third_hybrid の各平面は相異なる。 -/
+lemma distinctPlanes_third_hybrid (n : ℕ) (_hn : 5 ≤ n) :
+    DistinctPlanes n (H_third_hybrid n) := by
+  intro i j hij
+  by_contra h_ne
+  rcases lt_trichotomy i j with h | h | h
+  · have h_not := not_parallel_third_hybrid i j h
+    have h_par := parallelPlanes_of_toSet_eq (H_third_hybrid n i) (H_third_hybrid n j) hij
+    exact h_not h_par
+  · exact h_ne h
+  · have h_not := not_parallel_third_hybrid j i h
+    have h_par := parallelPlanes_of_toSet_eq (H_third_hybrid n j) (H_third_hybrid n i) hij.symm
+    exact h_not h_par
+
+/-- n = 5 のとき、配置の領域数は24である。 -/
 lemma spaceRegionsCount_third_hybrid_five :
     spaceRegionsCount 5 (H_third_hybrid 5) = 24 := by
+  -- 三角柱の7領域に第4平面が加わって14領域となり、点(0,0,3)を通る第5平面の切断領域10が加わって24となる。
   sorry
 
 /-- n ≥ 5 のとき、モーメント平面を追加したときの切断領域数は最大値に一致する。 -/
 lemma splitSpaceRegionsCount_third_hybrid (n : ℕ) (hn : 5 ≤ n) :
     splitSpaceRegionsCount n (H_third_hybrid (n + 1)) = maxPlaneRegions n := by
+  -- 6枚目以降に追加されるモーメント平面は既存の配置と一般の位置にあるため、切断領域数は最大値をとる。
   sorry
 
 /-- n ≥ 5 のとき、H_third_hybrid の領域数は第3位の領域数に一致する。 -/
