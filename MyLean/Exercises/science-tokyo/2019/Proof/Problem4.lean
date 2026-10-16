@@ -23,8 +23,10 @@ def maxPlaneRegions (k : ℕ) : ℕ :=
 
 /-- 3次元空間分割の最大数に関する漸化式:
 $T_{\max}(n + 1) = T_{\max}(n) + S(n)$。
-$(n+1)$ 枚目の平面が既存の $n$ 枚の平面と交わることで、その平面上に $S(n)$ 個の領域が生じ、
-同数の立体領域が新たに分割生成される幾何的性質に対応する。 -/
+$(n+1)$ 枚目の平面が既存の $n$ 枚の平面と交わるとき、その平面上に $n$ 本の交線が現れ、
+最大で $S(n)$ 個の平面領域が生じる。
+追加された平面が通過した既存の立体領域をそれぞれ2つに分割するため、
+増える立体領域の個数は平面上の分割数 $S(n)$ と完全に一致する。 -/
 lemma maxSpaceRegions_succ (n : ℕ) :
     maxSpaceRegions (n + 1) = maxSpaceRegions n + maxPlaneRegions n := by
   dsimp [maxSpaceRegions, maxPlaneRegions]
@@ -216,9 +218,42 @@ theorem planeRegionsCount_eq_max_of_general_position (k : ℕ) (L : Fin k → Li
 /-- 3次元平面配置に対する幾何学的漸化不等式:
 $(n+1)$ 枚目の平面 $H_{n}$ を追加したときの空間領域数は、
 既存の $n$ 枚による領域数と、第 $(n+1)$ 平面上に現れる交線配置による領域数の和で抑えられる。
-したがって、空間領域数の増加量は高々 $S(n)$ である。 -/
+したがって、空間領域数の増加量は高々 $S(n)$ である。
+
+【新しい平面上の領域分割】
+平面 $H_{n+1}$ は、空間内に既に存在する $n$ 枚の平面 $H_1, \dots, H_n$ とそれぞれ交差する。
+平行でない各平面との交わりによって、$H_{n+1}$ 上には高々 $n$ 本の交線が現れ、
+これらによって平面 $H_{n+1}$ 自身がいくつかの平面領域に分割される。
+
+【立体領域が増加する幾何学的仕組み】
+追加された平面 $H_{n+1}$ は既存の空間領域を横切り、通過した領域をそれぞれ2つに分割する。
+$H_{n+1}$ 上に現れる各平面領域は、既存の空間領域の内部を切断する境界面に対応するため、
+新しく形成された平面領域1つにつき、空間全体の領域数が1つ増加する。
+
+【漸化式による導出と評価】
+空間領域数を $T_n$、新しい平面上の領域数を $U_{n}$ とすると、漸化関係
+$$ T_{n+1} = T_n + U_{n} $$
+が成り立つ。一般の位置(どの3平面も共通直線をもたず、交線が一般の位置をなす配置)にあるとき、
+$U_{n}$ は怠けた仕出し屋の数列 $S(n)$ と一致し、最大増加量を与える。
+したがって、増える立体領域の個数は追加された平面上の領域数と一致し、
+一般の配置における増加量は常に $S(n)$ 以下となる。 -/
 lemma spaceRegionsCount_succ_le (n : ℕ) (H : Fin (n + 1) → Plane3) :
     spaceRegionsCount (n + 1) H ≤ spaceRegionsCount n (H ∘ Fin.castSucc) + maxPlaneRegions n := by
+  sorry
+
+/-- 一般の位置にある平面配置における領域数の漸化等式:
+一般の位置にある配置に新しい平面を追加したとき、
+増える立体領域の個数は、その平面上に現れる交線配置の最大平面領域数 $S(n)$ と完全に一致する。 -/
+theorem spaceRegionsCount_succ_eq_of_general_position (n : ℕ) (H : Fin (n + 1) → Plane3)
+    (hgen : GeneralPositionPlanes (n + 1) H) :
+    spaceRegionsCount (n + 1) H = spaceRegionsCount n (H ∘ Fin.castSucc) + maxPlaneRegions n := by
+  sorry
+
+/-- 一般の位置にある平面配置に対する最大値達成定理:
+一般の位置にある平面配置 $H$ では、空間領域数が最大値 $T_{\max}(n)$ に一致する。 -/
+theorem spaceRegionsCount_eq_max_of_general_position (n : ℕ) (H : Fin n → Plane3)
+    (hgen : GeneralPositionPlanes n H) :
+    spaceRegionsCount n H = maxSpaceRegions n := by
   sorry
 
 /-- 3次元空間における幾何学的領域数の最大値上界定理:
