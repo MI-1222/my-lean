@@ -304,6 +304,321 @@ theorem card_intervals_of_finset_real (S : Finset ℝ) :
   rw [Fintype.card_fin] at h_le
   exact h_le
 
+/-- 同一の連結成分に属する点は、左側にある有限集合 $S$ の元の個数が等しい。
+もし個数が異なれば間に $s \in S$ が存在し、開かつ閉集合により分離されて矛盾する。 -/
+lemma countLt_eq_of_connectedComponent_eq {S : Finset ℝ} (x y : {x : ℝ | x ∉ S})
+    (h_conn : connectedComponent x = connectedComponent y) :
+    countLt S x.val = countLt S y.val := by
+  by_contra hne
+  have h_cases : (∃ s ∈ S, x.val < s ∧ s < y.val) ∨ (∃ s ∈ S, y.val < s ∧ s < x.val) := by
+    rcases le_total x.val y.val with hle | hle
+    · left
+      have h_ssub : S.filter (· < x.val) ⊂ S.filter (· < y.val) := by
+        refine Finset.ssubset_iff_subset_ne.mpr ⟨?_, ?_⟩
+        · intro t ht
+          simp only [Finset.mem_filter] at ht ⊢
+          exact ⟨ht.1, lt_of_lt_of_le ht.2 hle⟩
+        · intro h_eq
+          have h_card_eq : countLt S x.val = countLt S y.val := by
+            dsimp [countLt]
+            rw [h_eq]
+          exact hne h_card_eq
+      obtain ⟨s, hs⟩ := Finset.exists_of_ssubset h_ssub
+      have hsS : s ∈ S := (Finset.mem_filter.mp hs.1).1
+      have hsy : s < y.val := (Finset.mem_filter.mp hs.1).2
+      have hsx : ¬ (s < x.val) := fun hlt => hs.2 (Finset.mem_filter.mpr ⟨hsS, hlt⟩)
+      have hs_le_x : x.val ≤ s := not_lt.mp hsx
+      have hne_sx : s ≠ x.val := fun h => x.2 (h ▸ hsS)
+      exact ⟨s, hsS, lt_of_le_of_ne hs_le_x hne_sx.symm, hsy⟩
+    · right
+      have h_ssub : S.filter (· < y.val) ⊂ S.filter (· < x.val) := by
+        refine Finset.ssubset_iff_subset_ne.mpr ⟨?_, ?_⟩
+        · intro t ht
+          simp only [Finset.mem_filter] at ht ⊢
+          exact ⟨ht.1, lt_of_lt_of_le ht.2 hle⟩
+        · intro h_eq
+          have h_card_eq : countLt S y.val = countLt S x.val := by
+            dsimp [countLt]
+            rw [h_eq]
+          exact hne h_card_eq.symm
+      obtain ⟨s, hs⟩ := Finset.exists_of_ssubset h_ssub
+      have hsS : s ∈ S := (Finset.mem_filter.mp hs.1).1
+      have hsx : s < x.val := (Finset.mem_filter.mp hs.1).2
+      have hsy : ¬ (s < y.val) := fun hlt => hs.2 (Finset.mem_filter.mpr ⟨hsS, hlt⟩)
+      have hs_le_y : y.val ≤ s := not_lt.mp hsy
+      have hne_sy : s ≠ y.val := fun h => y.2 (h ▸ hsS)
+      exact ⟨s, hsS, lt_of_le_of_ne hs_le_y hne_sy.symm, hsx⟩
+  rcases h_cases with ⟨s, hsS, hx_lt, hs_lt_y⟩ | ⟨s, hsS, hy_lt, hs_lt_x⟩
+  · let U : Set {p : ℝ | p ∉ S} := {p | p.val < s}
+    have hU_open : IsOpen U := isOpen_Iio.preimage continuous_subtype_val
+    have hUc_open : IsOpen (Uᶜ) := by
+      have h_eq : Uᶜ = {p : {p : ℝ | p ∉ S} | s < p.val} := by
+        ext p
+        simp only [mem_compl_iff]
+        change ¬ p.val < s ↔ s < p.val
+        constructor
+        · intro hnot
+          have hle : s ≤ p.val := not_lt.mp hnot
+          have hne : s ≠ p.val := fun h => p.2 (h ▸ hsS)
+          exact lt_of_le_of_ne hle hne
+        · intro hlt hle
+          exact lt_asymm hlt hle
+      rw [h_eq]
+      exact isOpen_Ioi.preimage continuous_subtype_val
+    have hU_clopen : IsClopen U := ⟨isOpen_compl_iff.mp hUc_open, hU_open⟩
+    have hxU : x ∈ U := hx_lt
+    have hyUc : y ∈ Uᶜ := by
+      intro hy
+      exact lt_asymm hs_lt_y hy
+    have h_sub := IsClopen.connectedComponent_subset hU_clopen hxU
+    have hy_in_comp : y ∈ connectedComponent x := by
+      rw [h_conn]
+      exact mem_connectedComponent
+    have hyU : y ∈ U := h_sub hy_in_comp
+    exact hyUc hyU
+  · let U : Set {p : ℝ | p ∉ S} := {p | p.val < s}
+    have hU_open : IsOpen U := isOpen_Iio.preimage continuous_subtype_val
+    have hUc_open : IsOpen (Uᶜ) := by
+      have h_eq : Uᶜ = {p : {p : ℝ | p ∉ S} | s < p.val} := by
+        ext p
+        simp only [mem_compl_iff]
+        change ¬ p.val < s ↔ s < p.val
+        constructor
+        · intro hnot
+          have hle : s ≤ p.val := not_lt.mp hnot
+          have hne : s ≠ p.val := fun h => p.2 (h ▸ hsS)
+          exact lt_of_le_of_ne hle hne
+        · intro hlt hle
+          exact lt_asymm hlt hle
+      rw [h_eq]
+      exact isOpen_Ioi.preimage continuous_subtype_val
+    have hU_clopen : IsClopen U := ⟨isOpen_compl_iff.mp hUc_open, hU_open⟩
+    have hyU : y ∈ U := hy_lt
+    have hxUc : x ∈ Uᶜ := by
+      intro hx
+      exact lt_asymm hs_lt_x hx
+    have h_sub := IsClopen.connectedComponent_subset hU_clopen hyU
+    have hx_in_comp : x ∈ connectedComponent y := by
+      rw [← h_conn]
+      exact mem_connectedComponent
+    have hxU : x ∈ U := h_sub hx_in_comp
+    exact hxUc hxU
+
+/-- 有限点集合 $S \subset \mathbb{R}$ に対し、
+各インデックス $j \in \{0, \dots, |S|\}$ について左側にちょうど $j$ 個の元をもつ点 $x \notin S$ が存在する。
+順序同型 `Fin S.card ≃o S` を用いて構成される。 -/
+lemma exists_point_countLt_eq (S : Finset ℝ) (j : Fin (S.card + 1)) :
+    ∃ x : ℝ, x ∉ S ∧ countLt S x = j.val := by
+  let m := S.card
+  by_cases hm : m = 0
+  · use 0
+    have hS_empty : S = ∅ := Finset.card_eq_zero.mp hm
+    have hj : j.val = 0 := by
+      have : j.val < m + 1 := j.isLt
+      omega
+    constructor
+    · intro h0
+      rw [hS_empty] at h0
+      simp at h0
+    · dsimp [countLt]
+      have : S.filter (· < 0) = ∅ := by rw [hS_empty, Finset.filter_empty]
+      rw [this, Finset.card_empty, hj]
+  · have hm_pos : 0 < m := Nat.pos_of_ne_zero hm
+    let e : Fin m ≃o S := Finset.orderIsoOfFin S rfl
+    by_cases hj0 : j.val = 0
+    · let x := (e ⟨0, hm_pos⟩ : ℝ) - 1
+      use x
+      constructor
+      · intro hxS
+        let i := e.symm ⟨x, hxS⟩
+        have h_eq : (e i : ℝ) = x :=
+          congr_arg Subtype.val (e.apply_symm_apply ⟨x, hxS⟩)
+        have h0_le_i : ⟨0, hm_pos⟩ ≤ i := Fin.le_def.mpr (Nat.zero_le i.val)
+        have h_le : (e ⟨0, hm_pos⟩ : ℝ) ≤ (e i : ℝ) := by
+          rw [Subtype.coe_le_coe]
+          exact e.monotone h0_le_i
+        rw [h_eq] at h_le
+        dsimp [x] at h_le
+        linarith
+      · have h_filter_empty : S.filter (· < x) = ∅ := by
+          rw [Finset.filter_eq_empty_iff]
+          intro s hs
+          let i := e.symm ⟨s, hs⟩
+          have h_eq : (e i : ℝ) = s :=
+            congr_arg Subtype.val (e.apply_symm_apply ⟨s, hs⟩)
+          have h0_le_i : ⟨0, hm_pos⟩ ≤ i := Fin.le_def.mpr (Nat.zero_le i.val)
+          have h_le : (e ⟨0, hm_pos⟩ : ℝ) ≤ (e i : ℝ) := by
+            rw [Subtype.coe_le_coe]
+            exact e.monotone h0_le_i
+          rw [h_eq] at h_le
+          dsimp [x]
+          linarith
+        dsimp [countLt]
+        rw [h_filter_empty, Finset.card_empty, hj0]
+    · by_cases hjm : j.val = m
+      · have hm_pred_lt : m - 1 < m := by omega
+        let x := (e ⟨m - 1, hm_pred_lt⟩ : ℝ) + 1
+        use x
+        constructor
+        · intro hxS
+          let i := e.symm ⟨x, hxS⟩
+          have h_eq : (e i : ℝ) = x :=
+            congr_arg Subtype.val (e.apply_symm_apply ⟨x, hxS⟩)
+          have hi_le : i ≤ ⟨m - 1, hm_pred_lt⟩ := by
+            have : i.val ≤ m - 1 := by
+              have := i.isLt
+              omega
+            exact Fin.le_def.mpr this
+          have h_le : (e i : ℝ) ≤ (e ⟨m - 1, hm_pred_lt⟩ : ℝ) := by
+            rw [Subtype.coe_le_coe]
+            exact e.monotone hi_le
+          rw [h_eq] at h_le
+          dsimp [x] at h_le
+          linarith
+        · have h_filter_all : S.filter (· < x) = S := by
+            ext s
+            simp only [Finset.mem_filter, and_iff_left_iff_imp]
+            intro hs
+            let i := e.symm ⟨s, hs⟩
+            have h_eq : (e i : ℝ) = s :=
+              congr_arg Subtype.val (e.apply_symm_apply ⟨s, hs⟩)
+            have hi_le : i ≤ ⟨m - 1, hm_pred_lt⟩ := by
+              have : i.val ≤ m - 1 := by
+                have := i.isLt
+                omega
+              exact Fin.le_def.mpr this
+            have h_le : (e i : ℝ) ≤ (e ⟨m - 1, hm_pred_lt⟩ : ℝ) := by
+              rw [Subtype.coe_le_coe]
+              exact e.monotone hi_le
+            rw [h_eq] at h_le
+            dsimp [x]
+            linarith
+          dsimp [countLt]
+          rw [h_filter_all, hjm]
+      · have hj_lt_m : j.val < m := by
+          have : j.val < m + 1 := j.isLt
+          omega
+        have hj_pos : 0 < j.val := Nat.pos_of_ne_zero hj0
+        have hj_pred_lt : j.val - 1 < m := by omega
+        let i0 : Fin m := ⟨j.val - 1, hj_pred_lt⟩
+        let i1 : Fin m := ⟨j.val, hj_lt_m⟩
+        have hi0_lt_i1 : i0 < i1 := by
+          exact Fin.mk_lt_mk.mpr (by omega)
+        have hei0_lt_ei1 : (e i0 : ℝ) < (e i1 : ℝ) := by
+          rw [Subtype.coe_lt_coe]
+          exact e.lt_iff_lt.mpr hi0_lt_i1
+        let x := ((e i0 : ℝ) + (e i1 : ℝ)) / 2
+        use x
+        have h_x_gt : (e i0 : ℝ) < x := by
+          dsimp [x]; linarith
+        have h_x_lt : x < (e i1 : ℝ) := by
+          dsimp [x]; linarith
+        constructor
+        · intro hxS
+          let i := e.symm ⟨x, hxS⟩
+          have h_eq : (e i : ℝ) = x :=
+            congr_arg Subtype.val (e.apply_symm_apply ⟨x, hxS⟩)
+          rcases le_or_gt i i0 with h_le | h_gt
+          · have : (e i : ℝ) ≤ (e i0 : ℝ) := by
+              rw [Subtype.coe_le_coe]; exact e.monotone h_le
+            rw [h_eq] at this; linarith
+          · have hi1_le : i1 ≤ i := by
+              have hi_lt : i0.val < i.val := Fin.lt_def.mp h_gt
+              have : j.val ≤ i.val := by
+                dsimp [i0] at hi_lt
+                omega
+              exact Fin.le_def.mpr this
+            have : (e i1 : ℝ) ≤ (e i : ℝ) := by
+              rw [Subtype.coe_le_coe]; exact e.monotone hi1_le
+            rw [h_eq] at this; linarith
+        · have h_filter_eq : S.filter (· < x) =
+              (Finset.filter (fun i : Fin m => i.val < j.val) Finset.univ).image
+                (fun i => (e i : ℝ)) := by
+            ext s
+            simp only [Finset.mem_filter, Finset.mem_image, Finset.mem_univ, true_and]
+            constructor
+            · intro ⟨hs, hs_lt⟩
+              let i := e.symm ⟨s, hs⟩
+              have h_eq : (e i : ℝ) = s :=
+                congr_arg Subtype.val (e.apply_symm_apply ⟨s, hs⟩)
+              refine ⟨i, ?_, h_eq⟩
+              by_contra hnot
+              simp only [not_lt] at hnot
+              have hi1_le : i1 ≤ i := by
+                exact Fin.le_def.mpr hnot
+              have : (e i1 : ℝ) ≤ (e i : ℝ) := by
+                rw [Subtype.coe_le_coe]; exact e.monotone hi1_le
+              rw [h_eq] at this; linarith
+            · rintro ⟨i, hi_lt, rfl⟩
+              have hsS : (e i : ℝ) ∈ S := (e i).property
+              refine ⟨hsS, ?_⟩
+              have hi_le_i0 : i ≤ i0 := by
+                have : i.val ≤ j.val - 1 := by
+                  have := i.isLt
+                  omega
+                exact Fin.le_def.mpr this
+              have : (e i : ℝ) ≤ (e i0 : ℝ) := by
+                rw [Subtype.coe_le_coe]; exact e.monotone hi_le_i0
+              linarith
+          dsimp [countLt]
+          rw [h_filter_eq]
+          have h_inj : ∀ i1 i2 : Fin m, (e i1 : ℝ) = (e i2 : ℝ) → i1 = i2 := by
+            intro a b hab
+            have : e a = e b := Subtype.ext hab
+            exact e.injective this
+          rw [Finset.card_image_of_injective _ h_inj]
+          have h_eq : Finset.filter (fun i : Fin m => i.val < j.val) Finset.univ =
+              (Finset.Iio (⟨j.val, hj_lt_m⟩ : Fin m)) := by
+            ext i
+            simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_Iio, Fin.lt_def]
+          rw [h_eq, Fin.card_Iio]
+
+/-- 有限値関数がファイバー上で同値関係を満たすとき、商集合は有限型である。 -/
+lemma finite_quotient_of_fiber_le {α : Type*} (s : Setoid α) {β : Type*} [Finite β]
+    (f : α → β) (h : ∀ x y, f x = f y → x ≈ y) :
+    Finite (Quotient s) := by
+  let g : Quotient s → β := fun q => f q.out
+  have hg_inj : Function.Injective g := by
+    intro q1 q2 hg
+    dsimp [g] at hg
+    have hequiv := h q1.out q2.out hg
+    have h1 : Quotient.mk s q1.out = q1 := Quotient.out_eq q1
+    have h2 : Quotient.mk s q2.out = q2 := Quotient.out_eq q2
+    have hsound : Quotient.mk s q1.out = Quotient.mk s q2.out := Quotient.sound hequiv
+    exact h1.symm.trans (hsound.trans h2)
+  exact Finite.of_injective g hg_inj
+
+/-- 実数直線の有限点分割に関する等号定理:
+有限点集合 $S$ による補集合の開区間(連結成分)の個数はちょうど $|S| + 1$ 個である。 -/
+theorem realIntervalsCount_eq (S : Finset ℝ) :
+    realIntervalsCount S = S.card + 1 := by
+  have h_le := card_intervals_of_finset_real S
+  have h_ge : S.card + 1 ≤ realIntervalsCount S := by
+    let α := {x : ℝ | x ∉ S}
+    let s : Setoid α := connectedComponentSetoid α
+    have : Finite (Quotient s) := by
+      let f : α → Fin (S.card + 1) := fun x => countLtFin S x.val
+      have h_fiber : ∀ x y : α, f x = f y → x ≈ y := by
+        intro x y hfg
+        exact connectedComponent_eq_of_countLtFin_eq x y hfg
+      exact finite_quotient_of_fiber_le s f h_fiber
+    choose w hw using (fun j : Fin (S.card + 1) => exists_point_countLt_eq S j)
+    let g : Fin (S.card + 1) → Quotient s := fun j => Quotient.mk s ⟨w j, (hw j).1⟩
+    have hg_inj : Function.Injective g := by
+      intro j1 j2 hg
+      have hequiv : (⟨w j1, (hw j1).1⟩ : α) ≈ (⟨w j2, (hw j2).1⟩ : α) := Quotient.exact hg
+      have hconn : connectedComponent (⟨w j1, (hw j1).1⟩ : α) =
+          connectedComponent (⟨w j2, (hw j2).1⟩ : α) := hequiv
+      have hcount := countLt_eq_of_connectedComponent_eq ⟨w j1, (hw j1).1⟩ ⟨w j2, (hw j2).1⟩ hconn
+      have hj1 : countLt S (w j1) = j1.val := (hw j1).2
+      have hj2 : countLt S (w j2) = j2.val := (hw j2).2
+      rw [hj1, hj2] at hcount
+      exact Fin.ext hcount
+    have h_card_le := Nat.card_le_card_of_injective g hg_inj
+    rw [Nat.card_fin] at h_card_le
+    exact h_card_le
+  omega
+
 /-! #### ステップ 2: 直線同士の交点数の上界 -/
 
 /-- 既存の第 $i$ 直線が、新しく追加された第 $(k+1)$ 直線と
@@ -990,7 +1305,8 @@ lemma card_lineIntersectionParams_eq_of_general_position (k : ℕ) (L : Fin (k +
 lemma lineIntervals_eq_of_general_position (k : ℕ) (L : Fin (k + 1) → Line2)
     (hgen : GeneralPositionLines (k + 1) L) :
     realIntervalsCount (lineIntersectionParams k L) = k + 1 := by
-  sorry
+  rw [realIntervalsCount_eq]
+  rw [card_lineIntersectionParams_eq_of_general_position k L hgen]
 
 /-- 一般の位置にある配置において、切断される領域の個数はちょうど $k + 1$ 個である。 -/
 lemma splitRegionsCount_eq_of_general_position (k : ℕ) (L : Fin (k + 1) → Line2)
