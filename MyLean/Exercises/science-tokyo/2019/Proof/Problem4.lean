@@ -3420,10 +3420,117 @@ lemma GeneralPositionPlanes.castSucc (n : ℕ) (H : Fin (n + 1) → Plane3)
     exact hgen.2.2 (Fin.castSucc i) (Fin.castSucc j) (Fin.castSucc l) (Fin.castSucc m)
       hij' hjl' hlm' hil' him' hjm'
 
+/-- 退化時や平行時に用いるデフォルトの2次元直線。 -/
+def defaultLine2 : Line2 :=
+  ⟨(WithLp.equiv 2 (Fin 2 → ℝ)).symm fun j => if j.val = 0 then 1 else 0,
+   by
+     intro h0
+     have := congr_fun (congr_arg (WithLp.equiv 2 (Fin 2 → ℝ)) h0) 0
+     simp only [WithLp.equiv_apply, PiLp.zero_apply] at this
+     norm_num at this,
+   0⟩
+
+/-- 3次元空間の2平面 $H_{last}, H_i$ に対し、
+$H_{last}$ の接平面における2次元法線ベクトル。 -/
+noncomputable def traceLineNormVec (H_last H_i : Plane3) : Plane2 :=
+  (WithLp.equiv 2 (Fin 2 → ℝ)).symm fun j =>
+    if j.val = 0 then
+      @inner ℝ Space3 _ H_i.normVec (planeBasis1 H_last.normVec)
+    else
+      @inner ℝ Space3 _ H_i.normVec (planeBasis2 H_last.normVec)
+
 /-- 第 $(n+1)$ 平面 $H(\mathrm{Fin.last } n)$ と既存の各平面 $H(\mathrm{Fin.castSucc } i)$
 との交わりによって第 $(n+1)$ 平面上に誘導される $n$ 本の交線配置。 -/
-def traceLinesOnLastPlane (n : ℕ) (_H : Fin (n + 1) → Plane3) : Fin n → Line2 :=
-  sorry
+noncomputable def traceLinesOnLastPlane (n : ℕ) (H : Fin (n + 1) → Plane3) :
+    Fin n → Line2 := fun i =>
+  let H_last := H (Fin.last n)
+  let H_i := H (Fin.castSucc i)
+  let w := traceLineNormVec H_last H_i
+  let sq_u := @inner ℝ Space3 _ H_last.normVec H_last.normVec
+  let p0 := (H_last.offset / sq_u) • H_last.normVec
+  let ci := H_i.offset - @inner ℝ Space3 _ H_i.normVec p0
+  if hw : w = 0 then
+    defaultLine2
+  else
+    ⟨w, hw, ci⟩
+
+/-- 平行でない2平面に対し、誘導される2次元法線ベクトルは非ゼロである。 -/
+lemma traceLineNormVec_ne_zero (H_last H_i : Plane3)
+    (h_not_parallel : ¬ parallelPlanes H_i H_last) :
+    traceLineNormVec H_last H_i ≠ 0 := by
+  intro hw_zero
+  apply h_not_parallel
+  dsimp [parallelPlanes]
+  let u := H_last.normVec
+  let sq_u := @inner ℝ Space3 _ u u
+  have h_sq_ne : sq_u ≠ 0 := by
+    intro h0
+    exact H_last.normVec_ne_zero (inner_self_eq_zero.mp h0)
+  let c := @inner ℝ Space3 _ H_i.normVec u / sq_u
+  use c
+  let w' := H_i.normVec - c • u
+  have hw'_u : @inner ℝ Space3 _ u w' = 0 := by
+    dsimp [w', c]
+    rw [inner_sub_right, inner_smul_right]
+    have : @inner ℝ Space3 _ u (H_i.normVec) =
+        @inner ℝ Space3 _ H_i.normVec u := real_inner_comm _ _
+    rw [this]
+    have h_cancel :
+        (@inner ℝ Space3 _ H_i.normVec u / sq_u) * sq_u =
+        @inner ℝ Space3 _ H_i.normVec u := by
+      exact div_mul_cancel₀ _ h_sq_ne
+    rw [h_cancel, sub_self]
+  have hw'_e1 : @inner ℝ Space3 _ (planeBasis1 u) w' = 0 := by
+    dsimp [w', c]
+    rw [inner_sub_right, inner_smul_right]
+    have h_u_e1 : @inner ℝ Space3 _ (planeBasis1 u) u = 0 := inner_planeBasis1_self u
+    rw [h_u_e1, mul_zero, sub_zero]
+    rw [real_inner_comm]
+    have h0 := congr_fun (congr_arg (WithLp.equiv 2 (Fin 2 → ℝ)) hw_zero) 0
+    dsimp [traceLineNormVec] at h0
+    simp only [WithLp.equiv_apply, Fin.val_zero, PiLp.zero_apply] at h0
+    exact h0
+  have hw'_e2 : @inner ℝ Space3 _ (planeBasis2 u) w' = 0 := by
+    dsimp [w', c]
+    rw [inner_sub_right, inner_smul_right]
+    have h_u_e2 : @inner ℝ Space3 _ (planeBasis2 u) u = 0 := inner_planeBasis2_self u
+    rw [h_u_e2, mul_zero, sub_zero]
+    rw [real_inner_comm]
+    have h1 := congr_fun (congr_arg (WithLp.equiv 2 (Fin 2 → ℝ)) hw_zero) 1
+    dsimp [traceLineNormVec] at h1
+    simp only [WithLp.equiv_apply, Fin.val_one, PiLp.zero_apply] at h1
+    exact h1
+  have hw'_zero :=
+    eq_zero_of_orthogonal_inners_zero u H_last.normVec_ne_zero w' hw'_u hw'_e1 hw'_e2
+  dsimp [w'] at hw'_zero
+  exact sub_eq_zero.mp hw'_zero
+
+/-- 3次元で交わる平面から誘導された2次元交線上の点と、3次元平面の点との同値性。 -/
+lemma mem_traceLine_iff (n : ℕ) (H : Fin (n + 1) → Plane3) (i : Fin n)
+    (h_not_parallel : ¬ parallelPlanes (H (Fin.castSucc i)) (H (Fin.last n)))
+    (p : Plane2) :
+    p ∈ (traceLinesOnLastPlane n H i).toSet ↔
+      planePt3 (H (Fin.last n)) p ∈ (H (Fin.castSucc i)).toSet := by
+  have hw_ne := traceLineNormVec_ne_zero (H (Fin.last n)) (H (Fin.castSucc i)) h_not_parallel
+  dsimp [traceLinesOnLastPlane]
+  split_ifs with hw
+  · exact (hw_ne hw).elim
+  · dsimp [Line2.toSet, Plane3.toSet]
+    have h_id := inner_planePt3_sub (H (Fin.last n)) p (H (Fin.castSucc i))
+    dsimp only at h_id
+    change @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec (planePt3 (H (Fin.last n)) p) -
+      (H (Fin.castSucc i)).offset =
+      @inner ℝ Plane2 _ (traceLineNormVec (H (Fin.last n)) (H (Fin.castSucc i))) p -
+        ((H (Fin.castSucc i)).offset -
+          @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec
+            (((H (Fin.last n)).offset /
+              @inner ℝ Space3 _ (H (Fin.last n)).normVec (H (Fin.last n)).normVec) •
+             (H (Fin.last n)).normVec)) at h_id
+    constructor
+    · intro hp
+      linarith [h_id, hp]
+    · intro hq
+      linarith [h_id, hq]
 
 /-- 3次元一般位置から2次元一般位置への帰着定理:
 3次元空間で一般の位置にある平面配置 $H$ に対し、
