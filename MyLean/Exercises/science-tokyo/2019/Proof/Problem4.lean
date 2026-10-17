@@ -813,6 +813,16 @@ noncomputable def rawIntersectionParam (k : ℕ) (L : Fin (k + 1) → Line2) (i 
     Classical.choose h
   else 0
 
+/-- 交差条件を満たすインデックスに対し、交点パラメータは対応する直線上の点を与える。 -/
+lemma rawIntersectionParam_spec (k : ℕ) (L : Fin (k + 1) → Line2) (i : Fin k)
+    (h : hasIntersectionWithLast k L i) :
+    linePt (L (Fin.last k)) (rawIntersectionParam k L i) ∈ (L (Fin.castSucc i)).toSet := by
+  dsimp [rawIntersectionParam]
+  have hex : ∃ t : ℝ, linePt (L (Fin.last k)) t ∈ (L (Fin.castSucc i)).toSet :=
+    exists_linePt_mem_of_not_parallel (L (Fin.castSucc i)) (L (Fin.last k)) h
+  simp only [hex, dite_true]
+  exact Classical.choose_spec hex
+
 /-- 既存の $k$ 本の直線と $(k+1)$ 本目の直線との交点に対応する直線上のパラメータ集合。
 平行でない各直線 $L_i$ との交点パラメータの像として定義される。 -/
 noncomputable def lineIntersectionParams (k : ℕ) (L : Fin (k + 1) → Line2) : Finset ℝ :=
@@ -829,6 +839,55 @@ lemma card_lineIntersectionParams_le (k : ℕ) (L : Fin (k + 1) → Line2) :
       ≤ (intersectingIndices k L).card := Finset.card_image_le
     _ ≤ (Finset.univ : Finset (Fin k)).card := Finset.card_le_univ _
     _ = k := Fintype.card_fin k
+
+/-- 平行な2直線に対する第3直線の交点パラメータ集合の濃度評価。
+推移律および共通点をもたないことから、交点数は0または2であり、1にはなり得ない。 -/
+lemma card_lineIntersectionParams_cases_of_parallel (L : Fin 3 → Line2)
+    (hpar : parallelLines (L 0) (L 1))
+    (hdisj : (L 0).toSet ∩ (L 1).toSet = ∅) :
+    (lineIntersectionParams 2 L).card = 0 ∨ (lineIntersectionParams 2 L).card = 2 := by
+  have h_ne1 := card_intersectingIndices_ne_one_of_parallel L hpar
+  have h_le2 : (intersectingIndices 2 L).card ≤ 2 := by
+    calc
+      (intersectingIndices 2 L).card ≤ (Finset.univ : Finset (Fin 2)).card :=
+        Finset.card_le_univ _
+      _ = 2 := rfl
+  have h_idx_cases : (intersectingIndices 2 L).card = 0 ∨
+      (intersectingIndices 2 L).card = 2 := by omega
+  rcases h_idx_cases with h0 | h2
+  · left
+    dsimp [lineIntersectionParams]
+    have : intersectingIndices 2 L = ∅ := Finset.card_eq_zero.mp h0
+    rw [this, Finset.image_empty, Finset.card_empty]
+  · right
+    dsimp [lineIntersectionParams]
+    have h_univ : intersectingIndices 2 L = (Finset.univ : Finset (Fin 2)) := by
+      apply Finset.eq_of_subset_of_card_le (Finset.subset_univ _)
+      have : (Finset.univ : Finset (Fin 2)).card = 2 := rfl
+      omega
+    have h_ne : rawIntersectionParam 2 L 0 ≠ rawIntersectionParam 2 L 1 := by
+      intro h_eq
+      have h0_in : (0 : Fin 2) ∈ intersectingIndices 2 L := by
+        rw [h_univ]; exact Finset.mem_univ _
+      have h1_in : (1 : Fin 2) ∈ intersectingIndices 2 L := by
+        rw [h_univ]; exact Finset.mem_univ _
+      dsimp [intersectingIndices] at h0_in h1_in
+      rw [Finset.mem_filter] at h0_in h1_in
+      have hp0 := rawIntersectionParam_spec 2 L 0 h0_in.2
+      have hp1 := rawIntersectionParam_spec 2 L 1 h1_in.2
+      have hcast0 : (Fin.castSucc (0 : Fin 2) : Fin 3) = 0 := rfl
+      have hcast1 : (Fin.castSucc (1 : Fin 2) : Fin 3) = 1 := rfl
+      rw [hcast0] at hp0
+      rw [hcast1] at hp1
+      rw [h_eq] at hp0
+      have hp_both : linePt (L 2) (rawIntersectionParam 2 L 1) ∈ (L 0).toSet ∩ (L 1).toSet :=
+        ⟨hp0, hp1⟩
+      rw [hdisj] at hp_both
+      exact hp_both
+    rw [h_univ]
+    have h_set : (Finset.univ : Finset (Fin 2)) = {0, 1} := rfl
+    rw [h_set, Finset.image_insert, Finset.image_singleton]
+    exact Finset.card_pair h_ne
 
 /-! #### ステップ 2-B: 1次元区間数と交点数の結合 -/
 
@@ -4262,6 +4321,68 @@ lemma maxPlaneRegions_le_splitSpaceRegionsCount_of_traceLines (n : ℕ) (H : Fin
   rw [h_split_count]
   exact h_card_le
 
+/-- 最後の平面と平行な平面が存在しないとき、
+切断空間領域数は誘導交線系の平面領域数と一致する。 -/
+lemma splitSpaceRegionsCount_eq_planeRegionsCount (n : ℕ) (H : Fin (n + 1) → Plane3)
+    (h_not_par : ∀ i : Fin n, ¬ parallelPlanes (H (Fin.castSucc i)) (H (Fin.last n))) :
+    splitSpaceRegionsCount n H = planeRegionsCount n (traceLinesOnLastPlane n H) := by
+  let L' := traceLinesOnLastPlane n H
+  let V := Finset.filter (fun τ => (convexPlaneRegion n L' τ).Nonempty) Finset.univ
+  let split_sigs := Finset.filter (fun σ =>
+    isSplitByPlane (convexSpaceRegion n (H ∘ Fin.castSucc) σ) (H (Fin.last n))) Finset.univ
+  have h_sub : V ⊆ split_sigs := by
+    intro τ hτ
+    rw [Finset.mem_filter] at hτ ⊢
+    refine ⟨hτ.1, ?_⟩
+    rcases hτ.2 with ⟨p, hp⟩
+    have hq := mem_convexSpaceRegion_of_mem_convexPlaneRegion' n H h_not_par τ hp
+    exact ⟨planePt3 (H (Fin.last n)) p, hq.1, hq.2⟩
+  have h_sup : split_sigs ⊆ V := by
+    intro σ hσ
+    rw [Finset.mem_filter] at hσ ⊢
+    refine ⟨hσ.1, ?_⟩
+    rcases hσ.2 with ⟨q, hq1, hq2⟩
+    rcases exists_p_planePt3_eq (H (Fin.last n)) hq2 with ⟨p, hp_eq⟩
+    use p
+    intro i
+    have hq_i := hq1 i
+    dsimp [convexSpaceRegion] at hq_i
+    have h_id := inner_planePt3_sub (H (Fin.last n)) p (H (Fin.castSucc i))
+    rw [hp_eq] at h_id
+    change @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec q -
+      (H (Fin.castSucc i)).offset =
+      @inner ℝ Plane2 _ (traceLineNormVec (H (Fin.last n)) (H (Fin.castSucc i))) p -
+        ((H (Fin.castSucc i)).offset -
+          @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec
+            (((H (Fin.last n)).offset /
+              @inner ℝ Space3 _ (H (Fin.last n)).normVec (H (Fin.last n)).normVec) •
+             (H (Fin.last n)).normVec)) at h_id
+    have hw_ne := traceLineNormVec_ne_zero (H (Fin.last n)) (H (Fin.castSucc i)) (h_not_par i)
+    have h_line :
+        (traceLinesOnLastPlane n H i).normVec =
+          traceLineNormVec (H (Fin.last n)) (H (Fin.castSucc i)) ∧
+        (traceLinesOnLastPlane n H i).offset = (H (Fin.castSucc i)).offset -
+          @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec
+            (((H (Fin.last n)).offset /
+              @inner ℝ Space3 _ (H (Fin.last n)).normVec (H (Fin.last n)).normVec) •
+             (H (Fin.last n)).normVec) := by
+      dsimp [traceLinesOnLastPlane]
+      split_ifs with hw
+      · exact (hw_ne hw).elim
+      · exact ⟨rfl, rfl⟩
+    rw [h_line.1, h_line.2]
+    cases hσi : σ i
+    · rw [hσi] at hq_i
+      dsimp at hq_i ⊢
+      linarith [h_id, hq_i]
+    · rw [hσi] at hq_i
+      dsimp at hq_i ⊢
+      linarith [h_id, hq_i]
+  have h_eq : split_sigs = V := Finset.Subset.antisymm h_sup h_sub
+  rw [planeRegionsCount_eq_card_nonempty_convexPlaneRegion]
+  change split_sigs.card = V.card
+  rw [h_eq]
+
 /-- 交線系が一般の位置にあるとき、切断領域数はちょうど maxPlaneRegions n である。 -/
 lemma splitSpaceRegionsCount_eq_of_traceLines (n : ℕ) (H : Fin (n + 1) → Plane3)
     (h_not_par : ∀ i : Fin n, ¬ parallelPlanes (H (Fin.castSucc i)) (H (Fin.last n)))
@@ -6541,6 +6662,532 @@ lemma spaceRegionsCount_equiv (n : ℕ) (H : Fin n → Plane3) (e : Fin n ≃ Fi
   exact congrArg (fun (s : Set Space3) =>
     Nat.card (ConnectedComponents (↥s))) h_set
 
+/-- あるビット反転に関して不変な符号ベクトル集合の要素数は偶数である。 -/
+lemma even_card_of_flip_invariant (m : Fin 3) (S : Finset (Fin 3 → Bool))
+    (h_inv : ∀ σ, σ ∈ S ↔ (fun l => if l = m then !(σ l) else σ l) ∈ S) :
+    ∃ k : ℕ, S.card = 2 * k := by
+  let f : (Fin 3 → Bool) → (Fin 3 → Bool) :=
+    fun σ l => if l = m then !(σ l) else σ l
+  have hf_invol : ∀ σ, f (f σ) = σ := by
+    intro σ
+    ext l
+    dsimp [f]
+    split_ifs with h
+    · simp
+    · rfl
+  have hf_inj : Function.Injective f := by
+    intro σ₁ σ₂ h
+    have := congrArg f h
+    rwa [hf_invol, hf_invol] at this
+  let A := S.filter (fun σ => σ m = false)
+  let B := S.filter (fun σ => σ m = true)
+  have h_union : S = A ∪ B := by
+    ext σ
+    simp only [A, B, Finset.mem_union, Finset.mem_filter]
+    cases σ m <;> simp
+  have h_disj : Disjoint A B := by
+    rw [Finset.disjoint_filter]
+    intro σ _ h1 h2
+    rw [h1] at h2
+    cases h2
+  have h_map_A : ∀ σ ∈ A, f σ ∈ B := by
+    intro σ hσ
+    rw [Finset.mem_filter] at hσ ⊢
+    refine ⟨(h_inv σ).mp hσ.1, ?_⟩
+    dsimp [f]
+    simp [hσ.2]
+  have h_map_B : ∀ σ ∈ B, f σ ∈ A := by
+    intro σ hσ
+    rw [Finset.mem_filter] at hσ ⊢
+    refine ⟨(h_inv σ).mp hσ.1, ?_⟩
+    dsimp [f]
+    simp [hσ.2]
+  have h_le_AB : A.card ≤ B.card := by
+    have : A.card = (A.image f).card := by
+      rw [Finset.card_image_of_injective _ hf_inj]
+    rw [this]
+    apply Finset.card_le_card
+    intro y hy
+    rw [Finset.mem_image] at hy
+    rcases hy with ⟨x, hx, rfl⟩
+    exact h_map_A x hx
+  have h_le_BA : B.card ≤ A.card := by
+    have : B.card = (B.image f).card := by
+      rw [Finset.card_image_of_injective _ hf_inj]
+    rw [this]
+    apply Finset.card_le_card
+    intro y hy
+    rw [Finset.mem_image] at hy
+    rcases hy with ⟨x, hx, rfl⟩
+    exact h_map_B x hx
+  have h_eq : A.card = B.card := le_antisymm h_le_AB h_le_BA
+  use A.card
+  rw [h_union, Finset.card_union_of_disjoint h_disj, h_eq]
+  ring
+
+/-- 全ビット反転に関して不変な符号ベクトル集合の要素数は偶数である。 -/
+lemma even_card_of_neg_invariant (S : Finset (Fin 3 → Bool))
+    (h_inv : ∀ σ, σ ∈ S ↔ (fun l => !(σ l)) ∈ S) :
+    ∃ k : ℕ, S.card = 2 * k := by
+  let f : (Fin 3 → Bool) → (Fin 3 → Bool) := fun σ l => !(σ l)
+  have hf_invol : ∀ σ, f (f σ) = σ := by
+    intro σ
+    ext l
+    dsimp [f]
+    simp
+  have hf_inj : Function.Injective f := by
+    intro σ₁ σ₂ h
+    have := congrArg f h
+    rwa [hf_invol, hf_invol] at this
+  let m : Fin 3 := 0
+  let A := S.filter (fun σ => σ m = false)
+  let B := S.filter (fun σ => σ m = true)
+  have h_union : S = A ∪ B := by
+    ext σ
+    simp only [A, B, Finset.mem_union, Finset.mem_filter]
+    cases σ m <;> simp
+  have h_disj : Disjoint A B := by
+    rw [Finset.disjoint_filter]
+    intro σ _ h1 h2
+    rw [h1] at h2
+    cases h2
+  have h_map_A : ∀ σ ∈ A, f σ ∈ B := by
+    intro σ hσ
+    rw [Finset.mem_filter] at hσ ⊢
+    refine ⟨(h_inv σ).mp hσ.1, ?_⟩
+    dsimp [f]
+    rw [hσ.2]
+    rfl
+  have h_map_B : ∀ σ ∈ B, f σ ∈ A := by
+    intro σ hσ
+    rw [Finset.mem_filter] at hσ ⊢
+    refine ⟨(h_inv σ).mp hσ.1, ?_⟩
+    dsimp [f]
+    rw [hσ.2]
+    rfl
+  have h_le_AB : A.card ≤ B.card := by
+    have : A.card = (A.image f).card := by
+      rw [Finset.card_image_of_injective _ hf_inj]
+    rw [this]
+    apply Finset.card_le_card
+    intro y hy
+    rw [Finset.mem_image] at hy
+    rcases hy with ⟨x, hx, rfl⟩
+    exact h_map_A x hx
+  have h_le_BA : B.card ≤ A.card := by
+    have : B.card = (B.image f).card := by
+      rw [Finset.card_image_of_injective _ hf_inj]
+    rw [this]
+    apply Finset.card_le_card
+    intro y hy
+    rw [Finset.mem_image] at hy
+    rcases hy with ⟨x, hx, rfl⟩
+    exact h_map_B x hx
+  have h_eq : A.card = B.card := le_antisymm h_le_AB h_le_BA
+  use A.card
+  rw [h_union, Finset.card_union_of_disjoint h_disj, h_eq]
+  ring
+
+lemma card_filter_pair_eq_two (i j : Fin 3) (hij : i ≠ j) (bi bj : Bool) :
+    (Finset.filter (fun σ : Fin 3 → Bool => σ i = bi ∧ σ j = bj) Finset.univ).card = 2 := by
+  revert i j hij bi bj
+  decide
+
+/-- 2つのインデックス $i, j$ の符号の組が空であるならば、全体の領域数は高々6である。 -/
+lemma planeRegionsCount_le_six_of_pair_empty
+    (L : Fin 3 → Line2) (i j : Fin 3) (hij : i ≠ j)
+    (bi bj : Bool)
+    (h_empty : ∀ p : Plane2, ¬ (
+      (if bi then (L i).offset < @inner ℝ Plane2 _ (L i).normVec p
+       else @inner ℝ Plane2 _ (L i).normVec p < (L i).offset) ∧
+      (if bj then (L j).offset < @inner ℝ Plane2 _ (L j).normVec p
+       else @inner ℝ Plane2 _ (L j).normVec p < (L j).offset))) :
+    planeRegionsCount 3 L ≤ 6 := by
+  rw [planeRegionsCount_eq_card_nonempty_convexPlaneRegion]
+  let bad_sigs := Finset.filter (fun σ : Fin 3 → Bool => σ i = bi ∧ σ j = bj) Finset.univ
+  have h_bad_empty : ∀ σ ∈ bad_sigs, ¬ (convexPlaneRegion 3 L σ).Nonempty := by
+    intro σ hσ ⟨p, hp⟩
+    rw [Finset.mem_filter] at hσ
+    have hpi := hp i
+    have hpj := hp j
+    change (if σ i then (L i).offset < @inner ℝ Plane2 _ (L i).normVec p
+            else @inner ℝ Plane2 _ (L i).normVec p < (L i).offset) at hpi
+    change (if σ j then (L j).offset < @inner ℝ Plane2 _ (L j).normVec p
+            else @inner ℝ Plane2 _ (L j).normVec p < (L j).offset) at hpj
+    rw [hσ.2.1] at hpi
+    rw [hσ.2.2] at hpj
+    exact h_empty p ⟨hpi, hpj⟩
+  have h_sub : (Finset.filter (fun σ => (convexPlaneRegion 3 L σ).Nonempty) Finset.univ) ⊆
+      Finset.univ \ bad_sigs := by
+    intro σ hσ
+    rw [Finset.mem_sdiff]
+    refine ⟨Finset.mem_univ σ, ?_⟩
+    intro h_bad
+    exact h_bad_empty σ h_bad (Finset.mem_filter.mp hσ).2
+  have h_card_le := Finset.card_le_card h_sub
+  rw [Finset.card_sdiff] at h_card_le
+  rw [Finset.inter_univ] at h_card_le
+  have h_univ : (Finset.univ : Finset (Fin 3 → Bool)).card = 8 := by decide
+  have h_bad_card : bad_sigs.card = 2 := card_filter_pair_eq_two i j hij bi bj
+  omega
+
+/-- 2本の相異なる直線が平行であるならば、少なくとも1組の符号は空集合である。 -/
+lemma exists_empty_pair_of_parallel_lines_and_distinct (L₁ L₂ : Line2)
+    (hpar : parallelLines L₁ L₂) (hdist : L₁.toSet ≠ L₂.toSet) :
+    ∃ b₁ b₂ : Bool, ∀ p : Plane2, ¬ (
+      (if b₁ then L₁.offset < @inner ℝ Plane2 _ L₁.normVec p
+       else @inner ℝ Plane2 _ L₁.normVec p < L₁.offset) ∧
+      (if b₂ then L₂.offset < @inner ℝ Plane2 _ L₂.normVec p
+       else @inner ℝ Plane2 _ L₂.normVec p < L₂.offset)) := by
+  rcases hpar with ⟨c, hc⟩
+  have hc_ne : c ≠ 0 := by
+    intro hc0
+    have : L₁.normVec = 0 := by rw [hc, hc0, zero_smul]
+    exact L₁.normVec_ne_zero this
+  have h_inner : ∀ p : Plane2,
+      @inner ℝ Plane2 _ L₁.normVec p = c * @inner ℝ Plane2 _ L₂.normVec p := by
+    intro p
+    rw [hc, inner_smul_left, conj_trivial]
+  rcases lt_or_gt_of_ne hc_ne with hc_neg | hc_pos
+  · by_cases h_le : L₁.offset / c ≤ L₂.offset
+    · use true, true
+      intro p ⟨hp1, hp2⟩
+      change L₁.offset < @inner ℝ Plane2 _ L₁.normVec p at hp1
+      change L₂.offset < @inner ℝ Plane2 _ L₂.normVec p at hp2
+      rw [h_inner] at hp1
+      have h1 : c * @inner ℝ Plane2 _ L₂.normVec p < c * L₂.offset :=
+        mul_lt_mul_of_neg_left hp2 hc_neg
+      have h2 : L₁.offset < c * L₂.offset := lt_trans hp1 h1
+      have h3 : L₂.offset * c ≤ L₁.offset := (div_le_iff_of_neg hc_neg).mp h_le
+      rw [mul_comm] at h3
+      linarith
+    · have h_gt : L₂.offset < L₁.offset / c := not_le.mp h_le
+      use false, false
+      intro p ⟨hp1, hp2⟩
+      change @inner ℝ Plane2 _ L₁.normVec p < L₁.offset at hp1
+      change @inner ℝ Plane2 _ L₂.normVec p < L₂.offset at hp2
+      rw [h_inner] at hp1
+      have h1 : c * L₂.offset < c * @inner ℝ Plane2 _ L₂.normVec p :=
+        mul_lt_mul_of_neg_left hp2 hc_neg
+      have h2 : c * L₂.offset < L₁.offset := lt_trans h1 hp1
+      have h3 : L₁.offset < L₂.offset * c := (lt_div_iff_of_neg hc_neg).mp h_gt
+      rw [mul_comm] at h3
+      linarith
+  · have h_off_ne : L₁.offset / c ≠ L₂.offset := by
+      intro h_off_eq
+      apply hdist
+      ext p
+      dsimp [Line2.toSet]
+      rw [h_inner]
+      constructor
+      · intro h1
+        have hc_ne' : c ≠ 0 := ne_of_gt hc_pos
+        have : @inner ℝ Plane2 _ L₂.normVec p = L₁.offset / c := by
+          rw [← h1, mul_div_cancel_left₀ _ hc_ne']
+        rw [h_off_eq] at this
+        exact this
+      · intro h2
+        have hc_ne' : c ≠ 0 := ne_of_gt hc_pos
+        rw [h2, ← h_off_eq, mul_div_cancel₀ _ hc_ne']
+    rcases lt_or_gt_of_ne h_off_ne with h_lt | h_gt
+    · use false, true
+      intro p ⟨hp1, hp2⟩
+      change @inner ℝ Plane2 _ L₁.normVec p < L₁.offset at hp1
+      change L₂.offset < @inner ℝ Plane2 _ L₂.normVec p at hp2
+      rw [h_inner] at hp1
+      have h1 : c * L₂.offset < c * @inner ℝ Plane2 _ L₂.normVec p :=
+        mul_lt_mul_of_pos_left hp2 hc_pos
+      have h2 : c * L₂.offset < L₁.offset := lt_trans h1 hp1
+      have h3 : L₁.offset < L₂.offset * c := (div_lt_iff₀ hc_pos).mp h_lt
+      rw [mul_comm] at h3
+      linarith
+    · use true, false
+      intro p ⟨hp1, hp2⟩
+      change L₁.offset < @inner ℝ Plane2 _ L₁.normVec p at hp1
+      change @inner ℝ Plane2 _ L₂.normVec p < L₂.offset at hp2
+      rw [h_inner] at hp1
+      have h1 : c * @inner ℝ Plane2 _ L₂.normVec p < c * L₂.offset :=
+        mul_lt_mul_of_pos_left hp2 hc_pos
+      have h2 : L₁.offset < c * L₂.offset := lt_trans hp1 h1
+      have h3 : L₂.offset * c < L₁.offset := (lt_div_iff₀ hc_pos).mp h_gt
+      rw [mul_comm] at h3
+      linarith
+
+/-- 平行線の反射律。任意の直線は自身と平行である。 -/
+lemma parallelLines_refl (L : Line2) : parallelLines L L := ⟨1, by rw [one_smul]⟩
+
+/-- 非ゼロベクトルの90度回転ベクトルは非ゼロである。 -/
+lemma rot90_ne_zero {u : Plane2} (hu : u ≠ 0) : rot90 u ≠ 0 := by
+  intro h
+  apply hu
+  ext i
+  fin_cases i
+  · have h1 : (rot90 u) 1 = 0 := by rw [h]; rfl
+    dsimp [rot90] at h1
+    exact h1
+  · have h0 : (rot90 u) 0 = 0 := by rw [h]; rfl
+    dsimp [rot90] at h0
+    exact neg_eq_zero.mp h0
+
+set_option linter.unusedSimpArgs false in
+/-- 3直線のうち2本が平行で、第3の直線がそれらと平行でないとき、
+開領域の存在性は第3直線の符号反転で不変である。 -/
+lemma nonempty_convexPlaneRegion_flip_of_parallel_pair
+    (L : Fin 3 → Line2) (i j k : Fin 3) (h_par : parallelLines (L i) (L j))
+    (h_not_par : ¬ parallelLines (L k) (L j))
+    (h_perm : ∀ l : Fin 3, l = i ∨ l = j ∨ l = k)
+    (hik : i ≠ k) (hjk : j ≠ k)
+    (σ : Fin 3 → Bool)
+    (h_nonempty : (convexPlaneRegion 3 L σ).Nonempty) :
+    (convexPlaneRegion 3 L (fun l => if l = k then !(σ l) else σ l)).Nonempty := by
+  rcases h_nonempty with ⟨p, hp⟩
+  rcases h_par with ⟨c, hc⟩
+  let u_j := (L j).normVec
+  let v := rot90 u_j
+  have hv_j : @inner ℝ Plane2 _ u_j v = 0 := inner_rot90_self u_j
+  have hv_i : @inner ℝ Plane2 _ (L i).normVec v = 0 := by
+    rw [hc, inner_smul_left, conj_trivial, hv_j, mul_zero]
+  have hv_k : @inner ℝ Plane2 _ (L k).normVec v ≠ 0 := by
+    intro h0
+    have := parallel_of_inner_rot90_zero (L k).normVec u_j (L j).normVec_ne_zero h0
+    exact h_not_par this
+  let u_k := (L k).normVec
+  let α := @inner ℝ Plane2 _ u_k v
+  have hα_ne : α ≠ 0 := hv_k
+  have hpk := hp k
+  change (if σ k then (L k).offset < @inner ℝ Plane2 _ u_k p
+          else @inner ℝ Plane2 _ u_k p < (L k).offset) at hpk
+  let t : ℝ := if σ k then
+      if 0 < α then ((L k).offset - @inner ℝ Plane2 _ u_k p) / α - 1
+      else ((L k).offset - @inner ℝ Plane2 _ u_k p) / α + 1
+    else
+      if 0 < α then ((L k).offset - @inner ℝ Plane2 _ u_k p) / α + 1
+      else ((L k).offset - @inner ℝ Plane2 _ u_k p) / α - 1
+  let q := p + t • v
+  use q
+  intro l
+  have hq_inner : @inner ℝ Plane2 _ (L l).normVec q =
+      @inner ℝ Plane2 _ (L l).normVec p + t * @inner ℝ Plane2 _ (L l).normVec v := by
+    dsimp [q]
+    rw [inner_add_right, inner_smul_right]
+  rcases h_perm l with hl | hl | hl
+  · rw [hl]
+    have h_l_ne : i ≠ k := hik
+    simp only [h_l_ne, ↓reduceIte]
+    have hq_i : @inner ℝ Plane2 _ (L i).normVec q = @inner ℝ Plane2 _ (L i).normVec p := by
+      rw [← hl, hq_inner, hl, hv_i, mul_zero, add_zero]
+    rw [hq_i]
+    exact hp i
+  · rw [hl]
+    have h_l_ne : j ≠ k := hjk
+    simp only [h_l_ne, ↓reduceIte]
+    have hq_j : @inner ℝ Plane2 _ (L j).normVec q = @inner ℝ Plane2 _ (L j).normVec p := by
+      rw [← hl, hq_inner, hl, hv_j, mul_zero, add_zero]
+    rw [hq_j]
+    exact hp j
+  · rw [hl]
+    simp only [↓reduceIte]
+    have hq_k : @inner ℝ Plane2 _ (L k).normVec q =
+        @inner ℝ Plane2 _ (L k).normVec p + t * α := by
+      change @inner ℝ Plane2 _ (L k).normVec q =
+        @inner ℝ Plane2 _ (L k).normVec p + t * @inner ℝ Plane2 _ (L k).normVec v
+      rw [← hl, hq_inner, hl]
+    cases hσk : σ k
+    · simp only [hσk, Bool.not_false, ↓reduceIte]
+      by_cases hα_pos : 0 < α
+      · have h_t : t = ((L k).offset - @inner ℝ Plane2 _ u_k p) / α + 1 := by
+          dsimp [t]; rw [hσk]; simp [hα_pos]
+        rw [hq_k, h_t]
+        have : (@inner ℝ Plane2 _ (L k).normVec p +
+            (((L k).offset - @inner ℝ Plane2 _ u_k p) / α + 1) * α) =
+            (L k).offset + α := by
+          change (@inner ℝ Plane2 _ u_k p +
+            (((L k).offset - @inner ℝ Plane2 _ u_k p) / α + 1) * α) = _
+          rw [add_mul, div_mul_cancel₀ _ (ne_of_gt hα_pos)]
+          ring
+        rw [this]
+        linarith
+      · have hα_neg : α < 0 := lt_of_le_of_ne (not_lt.mp hα_pos) hα_ne
+        have h_t : t = ((L k).offset - @inner ℝ Plane2 _ u_k p) / α - 1 := by
+          dsimp [t]; rw [hσk]; simp [not_lt.mp hα_pos]
+        rw [hq_k, h_t]
+        have : (@inner ℝ Plane2 _ (L k).normVec p +
+            (((L k).offset - @inner ℝ Plane2 _ u_k p) / α - 1) * α) =
+            (L k).offset - α := by
+          change (@inner ℝ Plane2 _ u_k p +
+            (((L k).offset - @inner ℝ Plane2 _ u_k p) / α - 1) * α) = _
+          rw [sub_mul, div_mul_cancel₀ _ (ne_of_lt hα_neg)]
+          ring
+        rw [this]
+        linarith
+    · simp only [hσk, Bool.not_true, ↓reduceIte, Bool.false_eq_true]
+      by_cases hα_pos : 0 < α
+      · have h_t : t = ((L k).offset - @inner ℝ Plane2 _ u_k p) / α - 1 := by
+          dsimp [t]; rw [hσk]; simp [hα_pos]
+        rw [hq_k, h_t]
+        have : (@inner ℝ Plane2 _ (L k).normVec p +
+            (((L k).offset - @inner ℝ Plane2 _ u_k p) / α - 1) * α) =
+            (L k).offset - α := by
+          change (@inner ℝ Plane2 _ u_k p +
+            (((L k).offset - @inner ℝ Plane2 _ u_k p) / α - 1) * α) = _
+          rw [sub_mul, div_mul_cancel₀ _ (ne_of_gt hα_pos)]
+          ring
+        rw [this]
+        linarith
+      · have hα_neg : α < 0 := lt_of_le_of_ne (not_lt.mp hα_pos) hα_ne
+        have h_t : t = ((L k).offset - @inner ℝ Plane2 _ u_k p) / α + 1 := by
+          dsimp [t]; rw [hσk]; simp [not_lt.mp hα_pos]
+        rw [hq_k, h_t]
+        have : (@inner ℝ Plane2 _ (L k).normVec p +
+            (((L k).offset - @inner ℝ Plane2 _ u_k p) / α + 1) * α) =
+            (L k).offset + α := by
+          change (@inner ℝ Plane2 _ u_k p +
+            (((L k).offset - @inner ℝ Plane2 _ u_k p) / α + 1) * α) = _
+          rw [add_mul, div_mul_cancel₀ _ (ne_of_lt hα_neg)]
+          ring
+        rw [this]
+        linarith
+
+/-- 3直線のうち2本が平行で、第3の直線がそれらと平行でないとき、領域数は偶数である。 -/
+lemma planeRegionsCount_even_of_parallel_pair
+    (L : Fin 3 → Line2) (i j k : Fin 3) (h_par : parallelLines (L i) (L j))
+    (h_not_par : ¬ parallelLines (L k) (L j))
+    (h_perm : ∀ l : Fin 3, l = i ∨ l = j ∨ l = k)
+    (hik : i ≠ k) (hjk : j ≠ k) :
+    ∃ m : ℕ, planeRegionsCount 3 L = 2 * m := by
+  let V := Finset.filter (fun σ => (convexPlaneRegion 3 L σ).Nonempty) Finset.univ
+  have h_inv : ∀ σ, σ ∈ V ↔ (fun l => if l = k then !(σ l) else σ l) ∈ V := by
+    intro σ
+    simp only [V, Finset.mem_filter, Finset.mem_univ, true_and]
+    constructor
+    · intro h
+      exact nonempty_convexPlaneRegion_flip_of_parallel_pair L i j k
+        h_par h_not_par h_perm hik hjk σ h
+    · intro h
+      have h2 := nonempty_convexPlaneRegion_flip_of_parallel_pair L i j k
+        h_par h_not_par h_perm hik hjk (fun l => if l = k then !(σ l) else σ l) h
+      have h_eq : (fun l => if l = k then !(if l = k then !(σ l) else σ l)
+                   else if l = k then !(σ l) else σ l) = σ := by
+        ext l
+        split_ifs with hl
+        · simp
+        · rfl
+      rwa [h_eq] at h2
+  have h_even := even_card_of_flip_invariant k V h_inv
+  rw [planeRegionsCount_eq_card_nonempty_convexPlaneRegion]
+  exact h_even
+
+/-- 誘導交線系の相異なる3直線が1点で交わるならば、その交点はもとの3平面の共通点である。 -/
+lemma eq_P0_of_traceLines_inter (H : Fin 4 → Plane3)
+    (h_not_par : ∀ i : Fin 3, ¬ parallelPlanes (H (Fin.castSucc i)) (H (Fin.last 3)))
+    (P0 : Space3)
+    (hP0 : ((H ∘ Fin.castSucc) 0).toSet ∩ ((H ∘ Fin.castSucc) 1).toSet ∩
+           ((H ∘ Fin.castSucc) 2).toSet = {P0})
+    (p : Plane2)
+    (hp : ∀ i : Fin 3, p ∈ (traceLinesOnLastPlane 3 H i).toSet) :
+    planePt3 (H (Fin.last 3)) p = P0 := by
+  have h_in : planePt3 (H (Fin.last 3)) p ∈ ({P0} : Set Space3) := by
+    rw [← hP0]
+    refine ⟨⟨?_, ?_⟩, ?_⟩
+    · dsimp only [Function.comp_apply]
+      rw [← mem_traceLine_iff 3 H 0 (h_not_par 0)]
+      exact hp 0
+    · dsimp only [Function.comp_apply]
+      rw [← mem_traceLine_iff 3 H 1 (h_not_par 1)]
+      exact hp 1
+    · dsimp only [Function.comp_apply]
+      rw [← mem_traceLine_iff 3 H 2 (h_not_par 2)]
+      exact hp 2
+  exact Set.mem_singleton_iff.mp h_in
+
+/-- 3枚の平面が一般の位置にあるとき、誘導交線系の直線がすべて互いに平行になることはない。 -/
+lemma not_all_parallel_of_traceLines (H : Fin 4 → Plane3)
+    (h_not_par : ∀ i : Fin 3, ¬ parallelPlanes (H (Fin.castSucc i)) (H (Fin.last 3)))
+    (P0 : Space3)
+    (hP0 : ((H ∘ Fin.castSucc) 0).toSet ∩ ((H ∘ Fin.castSucc) 1).toSet ∩
+           ((H ∘ Fin.castSucc) 2).toSet = {P0})
+    (j : Fin 3)
+    (h_all_par : ∀ l : Fin 3, parallelLines (traceLinesOnLastPlane 3 H l)
+                                           (traceLinesOnLastPlane 3 H j)) :
+    False := by
+  let L' := traceLinesOnLastPlane 3 H
+  have hw_ne := traceLineNormVec_ne_zero (H (Fin.last 3)) (H (Fin.castSucc j)) (h_not_par j)
+  have h_norm_eq : (L' j).normVec = traceLineNormVec (H (Fin.last 3)) (H (Fin.castSucc j)) := by
+    dsimp [L', traceLinesOnLastPlane]
+    split_ifs with hw
+    · exact (hw_ne hw).elim
+    · rfl
+  let u := (L' j).normVec
+  have hu_ne : u ≠ 0 := (L' j).normVec_ne_zero
+  let v := rot90 u
+  have hv_ne : v ≠ 0 := rot90_ne_zero hu_ne
+  have hv_u : @inner ℝ Plane2 _ u v = 0 := inner_rot90_self u
+  have hv_l : ∀ l : Fin 3, @inner ℝ Plane2 _ (L' l).normVec v = 0 := by
+    intro l
+    rcases h_all_par l with ⟨c, hc⟩
+    rw [hc, inner_smul_left, conj_trivial, hv_u, mul_zero]
+  let Q1 := planePt3 (H (Fin.last 3)) 0
+  let Q2 := planePt3 (H (Fin.last 3)) v
+  let V := Q2 - Q1
+  have hV_ne : V ≠ 0 := by
+    intro h0
+    apply hv_ne
+    have : Q2 = Q1 := sub_eq_zero.mp h0
+    exact planePt3_injective (H (Fin.last 3)) this
+  have h_inner_V : ∀ l : Fin 3,
+      @inner ℝ Space3 _ (H (Fin.castSucc l)).normVec V = 0 := by
+    intro l
+    have h1 := inner_planePt3_sub (H (Fin.last 3)) v (H (Fin.castSucc l))
+    have h2 := inner_planePt3_sub (H (Fin.last 3)) 0 (H (Fin.castSucc l))
+    dsimp only at h1 h2
+    have hw_l_ne := traceLineNormVec_ne_zero (H (Fin.last 3)) (H (Fin.castSucc l)) (h_not_par l)
+    have h_norm_l : (L' l).normVec = traceLineNormVec (H (Fin.last 3)) (H (Fin.castSucc l)) := by
+      dsimp [L', traceLinesOnLastPlane]
+      split_ifs with hw
+      · exact (hw_l_ne hw).elim
+      · rfl
+    have h_zero :
+        @inner ℝ Plane2 _ (traceLineNormVec (H (Fin.last 3)) (H (Fin.castSucc l))) 0 = 0 :=
+      inner_zero_right _
+    have h_v_zero :
+        @inner ℝ Plane2 _ (traceLineNormVec (H (Fin.last 3)) (H (Fin.castSucc l))) v = 0 := by
+      rw [← h_norm_l]
+      exact hv_l l
+    have h_inner_eq : @inner ℝ Space3 _ (H (Fin.castSucc l)).normVec V =
+        @inner ℝ Space3 _ (H (Fin.castSucc l)).normVec (planePt3 (H (Fin.last 3)) v) -
+        @inner ℝ Space3 _ (H (Fin.castSucc l)).normVec (planePt3 (H (Fin.last 3)) 0) := by
+      change @inner ℝ Space3 _ (H (Fin.castSucc l)).normVec (Q2 - Q1) = _
+      rw [inner_sub_right]
+    rw [h_inner_eq]
+    dsimp only [traceLineNormVec] at h_zero h_v_zero
+    linarith [h1, h2, h_zero, h_v_zero]
+  have hP0_mem : ∀ i : Fin 3, P0 ∈ (H (Fin.castSucc i)).toSet := by
+    intro i
+    have h_in : P0 ∈ {P0} := Set.mem_singleton P0
+    rw [← hP0] at h_in
+    fin_cases i
+    · exact h_in.1.1
+    · exact h_in.1.2
+    · exact h_in.2
+  have h_mem_P0_V : P0 + V ∈ ((H ∘ Fin.castSucc) 0).toSet ∩
+      ((H ∘ Fin.castSucc) 1).toSet ∩ ((H ∘ Fin.castSucc) 2).toSet := by
+    refine ⟨⟨?_, ?_⟩, ?_⟩
+    · change @inner ℝ Space3 _ (H (Fin.castSucc 0)).normVec (P0 + V) =
+        (H (Fin.castSucc 0)).offset
+      rw [inner_add_right, h_inner_V 0, add_zero]
+      exact hP0_mem 0
+    · change @inner ℝ Space3 _ (H (Fin.castSucc 1)).normVec (P0 + V) =
+        (H (Fin.castSucc 1)).offset
+      rw [inner_add_right, h_inner_V 1, add_zero]
+      exact hP0_mem 1
+    · change @inner ℝ Space3 _ (H (Fin.castSucc 2)).normVec (P0 + V) =
+        (H (Fin.castSucc 2)).offset
+      rw [inner_add_right, h_inner_V 2, add_zero]
+      exact hP0_mem 2
+  rw [hP0, Set.mem_singleton_iff] at h_mem_P0_V
+  have : V = 0 := add_left_cancel (h_mem_P0_V.trans (add_zero P0).symm)
+  exact hV_ne this
+
 /-- 3枚の平面が一般の位置にあるとき、第4平面による切断空間領域数は5になり得ない。 -/
 lemma splitSpaceRegionsCount_three_ne_five (H : Fin 4 → Plane3)
     (hgen : GeneralPositionPlanes 3 (H ∘ Fin.castSucc))
@@ -6557,11 +7204,162 @@ lemma splitSpaceRegionsCount_three_ne_five (H : Fin 4 → Plane3)
   · have h7 := splitSpaceRegionsCount_eq_of_traceLines 3 H h_not_par hgen_lines
     rw [h_max3] at h7
     omega
-  · -- 交線系L'が一般の位置にない場合、切断領域数は高々4または6である。
-    have h_cases : splitSpaceRegionsCount 3 H ≤ 4 ∨ splitSpaceRegionsCount 3 H = 6 := by
-      -- 平行線の推移律および共点配置の幾何的性質より、切断領域数は4または6に限定される。
-      sorry
-    rcases h_cases with hle4 | heq6 <;> omega
+  · -- 交線系L'が一般の位置にない場合、P0 ∈ H 3 か否かで場合分けする。
+    have h01 : (0 : Fin 3) ≠ 1 := by decide
+    have h12 : (1 : Fin 3) ≠ 2 := by decide
+    have h02 : (0 : Fin 3) ≠ 2 := by decide
+    rcases hgen.2.1 0 1 2 h01 h12 h02 with ⟨P0, hP0⟩
+    have hP0_mem : ∀ i : Fin 3, P0 ∈ (H (Fin.castSucc i)).toSet := by
+      intro i
+      have h_in : P0 ∈ {P0} := Set.mem_singleton P0
+      rw [← hP0] at h_in
+      fin_cases i
+      · exact h_in.1.1
+      · exact h_in.1.2
+      · exact h_in.2
+    have hp0_i : ∀ i : Fin 3,
+        @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec P0 = (H (Fin.castSucc i)).offset := by
+      intro i; exact hP0_mem i
+    by_cases hP0_3 : P0 ∈ (H (Fin.last 3)).toSet
+    · -- P0 ∈ H 3 の場合: 4平面すべてが P0 を通り、全反転に関して対称なため領域数は偶数である。
+      have hp0_3 : @inner ℝ Space3 _ (H (Fin.last 3)).normVec P0 = (H (Fin.last 3)).offset :=
+        hP0_3
+      let split_sigs := Finset.filter (fun σ =>
+        isSplitByPlane (convexSpaceRegion 3 (H ∘ Fin.castSucc) σ) (H (Fin.last 3))) Finset.univ
+      have h_split_count : splitSpaceRegionsCount 3 H = split_sigs.card := rfl
+      have h_fwd : ∀ σ, σ ∈ split_sigs → (fun l => !(σ l)) ∈ split_sigs := by
+        intro σ hσ
+        dsimp [split_sigs] at hσ ⊢
+        rw [Finset.mem_filter] at hσ ⊢
+        refine ⟨Finset.mem_univ _, ?_⟩
+        rcases hσ.2 with ⟨q, hq1, hq2⟩
+        refine ⟨(2 : ℝ) • P0 - q, ?_, ?_⟩
+        · intro i
+          have hq_i := hq1 i
+          dsimp [convexSpaceRegion] at hq_i ⊢
+          have h_inner : @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec ((2 : ℝ) • P0 - q) -
+              (H (Fin.castSucc i)).offset =
+              - (@inner ℝ Space3 _ (H (Fin.castSucc i)).normVec q -
+                 (H (Fin.castSucc i)).offset) := by
+            rw [inner_sub_right, inner_smul_right, hp0_i i]
+            ring
+          by_cases hσi : σ i = true
+          · have h_not : (!σ i) = false := by rw [hσi]; rfl
+            have h_t : (if (!σ i) = true then (H (Fin.castSucc i)).offset <
+                @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec ((2 : ℝ) • P0 - q)
+              else @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec ((2 : ℝ) • P0 - q) <
+                (H (Fin.castSucc i)).offset) ↔
+                @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec ((2 : ℝ) • P0 - q) <
+                (H (Fin.castSucc i)).offset := by
+              rw [h_not]
+              simp
+            rw [h_t]
+            have hq_i' : (H (Fin.castSucc i)).offset <
+                @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec q := by
+              revert hq_i
+              rw [hσi]
+              simp
+            linarith [h_inner, hq_i']
+          · have h_f : σ i = false := by
+              revert hσi; cases σ i <;> simp
+            have h_not : (!σ i) = true := by rw [h_f]; rfl
+            have h_t : (if (!σ i) = true then (H (Fin.castSucc i)).offset <
+                @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec ((2 : ℝ) • P0 - q)
+              else @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec ((2 : ℝ) • P0 - q) <
+                (H (Fin.castSucc i)).offset) ↔
+                (H (Fin.castSucc i)).offset <
+                @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec ((2 : ℝ) • P0 - q) := by
+              rw [h_not]
+              simp
+            rw [h_t]
+            have hq_i' : @inner ℝ Space3 _ (H (Fin.castSucc i)).normVec q <
+                (H (Fin.castSucc i)).offset := by
+              revert hq_i
+              rw [h_f]
+              simp
+            linarith [h_inner, hq_i']
+        · dsimp [Plane3.toSet] at hq2 ⊢
+          have hp0_3' : @inner ℝ Space3 _ (H 3).normVec P0 = (H 3).offset := hp0_3
+          have h_inner_last : @inner ℝ Space3 _ (H 3).normVec ((2 : ℝ) • P0 - q) =
+              2 * @inner ℝ Space3 _ (H 3).normVec P0 -
+              @inner ℝ Space3 _ (H 3).normVec q := by
+            rw [inner_sub_right, inner_smul_right]
+          rw [h_inner_last, hp0_3', hq2]
+          ring
+      have h_inv : ∀ σ, σ ∈ split_sigs ↔ (fun l => !(σ l)) ∈ split_sigs := by
+        intro σ
+        constructor
+        · exact h_fwd σ
+        · intro h
+          have h2 := h_fwd (fun l => !(σ l)) h
+          have h_not_not : (fun l => !(!(σ l))) = σ := by
+            ext l; simp
+          rwa [h_not_not] at h2
+      have h_even := even_card_of_neg_invariant split_sigs h_inv
+      rcases h_even with ⟨k, hk⟩
+      rw [h_split_count] at h5
+      rw [hk] at h5
+      omega
+    · -- P0 ∉ H 3 の場合: 4平面は1点を共有せず、交線系L'の平行ペアにより切断領域数は偶数である。
+      have h_split_eq := splitSpaceRegionsCount_eq_planeRegionsCount 3 H h_not_par
+      rw [h_split_eq] at h5
+      have h_par_pair : ∃ i j : Fin 3, i ≠ j ∧ parallelLines (L' i) (L' j) := by
+        by_contra h_no_par
+        have h_all_not_par : ∀ i j : Fin 3, i ≠ j → ¬ parallelLines (L' i) (L' j) := by
+          intro i j hij hpar
+          apply h_no_par
+          exact ⟨i, j, hij, hpar⟩
+        apply hnot_gen
+        refine ⟨h_all_not_par, ?_⟩
+        intro i j l hij hjl hil
+        by_contra h_empty
+        have h_nonempty : ((L' i).toSet ∩ (L' j).toSet ∩ (L' l).toSet).Nonempty :=
+          Set.nonempty_iff_ne_empty.mpr h_empty
+        rcases h_nonempty with ⟨p, hp⟩
+        have hp_all : ∀ m : Fin 3, p ∈ (L' m).toSet := by
+          intro m
+          have hm_in : m = i ∨ m = j ∨ m = l := by
+            fin_cases m <;> fin_cases i <;> fin_cases j <;> fin_cases l <;>
+              try { simp } <;> try { contradiction }
+          rcases hm_in with rfl | rfl | rfl
+          · exact hp.1.1
+          · exact hp.1.2
+          · exact hp.2
+        have h_eq_P0 := eq_P0_of_traceLines_inter H h_not_par P0 hP0 p hp_all
+        have h_P0_in_3 : P0 ∈ (H (Fin.last 3)).toSet := by
+          rw [← h_eq_P0]
+          exact planePt3_mem_plane (H (Fin.last 3)) p
+        exact hP0_3 h_P0_in_3
+      rcases h_par_pair with ⟨i, ⟨j, hij, h_par_ij⟩⟩
+      have h_exist_k :
+          ∃ k : Fin 3, i ≠ k ∧ j ≠ k ∧ (∀ l : Fin 3, l = i ∨ l = j ∨ l = k) := by
+        fin_cases i <;> fin_cases j <;> try contradiction
+        · refine ⟨2, by decide, by decide, ?_⟩
+          intro l; fin_cases l <;> simp
+        · refine ⟨1, by decide, by decide, ?_⟩
+          intro l; fin_cases l <;> simp
+        · refine ⟨2, by decide, by decide, ?_⟩
+          intro l; fin_cases l <;> simp
+        · refine ⟨0, by decide, by decide, ?_⟩
+          intro l; fin_cases l <;> simp
+        · refine ⟨1, by decide, by decide, ?_⟩
+          intro l; fin_cases l <;> simp
+        · refine ⟨0, by decide, by decide, ?_⟩
+          intro l; fin_cases l <;> simp
+      rcases h_exist_k with ⟨k, hik, hjk, h_perm⟩
+      by_cases h_par_kj : parallelLines (L' k) (L' j)
+      · have h_all_par : ∀ l : Fin 3, parallelLines (L' l) (L' j) := by
+          intro l
+          rcases h_perm l with rfl | rfl | rfl
+          · exact h_par_ij
+          · exact parallelLines_refl _
+          · exact h_par_kj
+        exact (not_all_parallel_of_traceLines H h_not_par P0 hP0 j h_all_par).elim
+      · have h_even := planeRegionsCount_even_of_parallel_pair L' i j k
+          h_par_ij h_par_kj h_perm hik hjk
+        rcases h_even with ⟨m, hm⟩
+        rw [hm] at h5
+        omega
 
 /-- どの2平面も平行でなく、どの3平面も一般の位置にない4平面配置の領域数は高々11である。 -/
 lemma spaceRegionsCount_four_le_eleven_of_not_general (H : Fin 4 → Plane3)
