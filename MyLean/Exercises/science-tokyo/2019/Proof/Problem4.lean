@@ -152,6 +152,26 @@ lemma six_mul_maxSpaceRegions (n : ℕ) :
 def parallelLines (L₁ L₂ : Line2) : Prop :=
   ∃ (c : ℝ), L₁.normVec = c • L₂.normVec
 
+/-- 平行線の推移律。$L_1 \parallel L_2$ かつ $L_2 \parallel L_3$ ならば $L_1 \parallel L_3$ である。 -/
+lemma parallelLines_trans (L₁ L₂ L₃ : Line2)
+    (h12 : parallelLines L₁ L₂) (h23 : parallelLines L₂ L₃) :
+    parallelLines L₁ L₃ := by
+  rcases h12 with ⟨c1, hc1⟩
+  rcases h23 with ⟨c2, hc2⟩
+  use (c1 * c2)
+  rw [hc1, hc2, mul_smul]
+
+/-- 平行線の対称律。$L_1 \parallel L_2$ ならば $L_2 \parallel L_1$ である。 -/
+lemma parallelLines_symm (L₁ L₂ : Line2)
+    (h : parallelLines L₁ L₂) : parallelLines L₂ L₁ := by
+  rcases h with ⟨c, hc⟩
+  have hc_ne : c ≠ 0 := by
+    intro hc0
+    apply L₁.normVec_ne_zero
+    rw [hc, hc0, zero_smul]
+  use c⁻¹
+  rw [hc, smul_smul, inv_mul_cancel₀ hc_ne, one_smul]
+
 /-- 2次元直線配置が一般の位置(General Position)にある条件。
 すべての直線が互いに平行でなく、かつどの相異なる3直線も1点で交わらない。 -/
 def GeneralPositionLines (k : ℕ) (L : Fin k → Line2) : Prop :=
@@ -634,6 +654,47 @@ open Classical in
 `Fin k` の部分集合として定義されるため、その要素数は常に $k$ 以下である。 -/
 noncomputable def intersectingIndices (k : ℕ) (L : Fin (k + 1) → Line2) : Finset (Fin k) :=
   Finset.filter (fun i => hasIntersectionWithLast k L i) Finset.univ
+
+/-- 平行な2直線に対して、第3の直線との交差性は同値である。 -/
+lemma hasIntersectionWithLast_iff_of_parallel (L : Fin 3 → Line2)
+    (hpar : parallelLines (L 0) (L 1)) :
+    hasIntersectionWithLast 2 L 0 ↔ hasIntersectionWithLast 2 L 1 := by
+  dsimp [hasIntersectionWithLast]
+  change (¬ parallelLines (L 0) (L 2)) ↔ (¬ parallelLines (L 1) (L 2))
+  constructor
+  · intro hnot hpar12
+    apply hnot
+    exact parallelLines_trans (L 0) (L 1) (L 2) hpar hpar12
+  · intro hnot hpar02
+    apply hnot
+    have h10 := parallelLines_symm (L 0) (L 1) hpar
+    exact parallelLines_trans (L 1) (L 0) (L 2) h10 hpar02
+
+/-- 平行な2直線が存在するとき、交差インデックス集合の要素数は1になり得ない。 -/
+lemma card_intersectingIndices_ne_one_of_parallel (L : Fin 3 → Line2)
+    (hpar : parallelLines (L 0) (L 1)) :
+    (intersectingIndices 2 L).card ≠ 1 := by
+  have h_iff := hasIntersectionWithLast_iff_of_parallel L hpar
+  intro h1
+  dsimp [intersectingIndices] at h1
+  have h_card :
+      (Finset.filter (fun i : Fin 2 => hasIntersectionWithLast 2 L i) Finset.univ).card = 0 ∨
+      (Finset.filter (fun i : Fin 2 => hasIntersectionWithLast 2 L i) Finset.univ).card = 2 := by
+    by_cases h0 : hasIntersectionWithLast 2 L 0
+    · have h1' : hasIntersectionWithLast 2 L 1 := h_iff.mp h0
+      right
+      have h_eq : (Finset.filter (fun i : Fin 2 => hasIntersectionWithLast 2 L i) Finset.univ) =
+          Finset.univ := by
+        ext i; fin_cases i <;> simp [h0, h1']
+      have h_univ : (Finset.univ : Finset (Fin 2)).card = 2 := rfl
+      rw [h_eq, h_univ]
+    · have h1' : ¬ hasIntersectionWithLast 2 L 1 := fun h => h0 (h_iff.mpr h)
+      left
+      have h_eq : (Finset.filter (fun i : Fin 2 => hasIntersectionWithLast 2 L i) Finset.univ) =
+          ∅ := by
+        ext i; fin_cases i <;> simp [h0, h1']
+      rw [h_eq, Finset.card_empty]
+  rcases h_card with hc0 | hc2 <;> omega
 
 /-- 2次元平面内のベクトル $u = (u_0, u_1)$ に対する反時計回り90度回転直交ベクトル $v = (-u_1, u_0)$。 -/
 noncomputable def rot90 (u : Plane2) : Plane2 :=
@@ -6496,9 +6557,9 @@ lemma splitSpaceRegionsCount_three_ne_five (H : Fin 4 → Plane3)
   · have h7 := splitSpaceRegionsCount_eq_of_traceLines 3 H h_not_par hgen_lines
     rw [h_max3] at h7
     omega
-  · -- 交線系 L' の平面領域数は ≤ 4 または 6 である。
+  · -- 交線系L'が一般の位置にない場合、切断領域数は高々4または6である。
     have h_cases : splitSpaceRegionsCount 3 H ≤ 4 ∨ splitSpaceRegionsCount 3 H = 6 := by
-      -- 平面領域数の離散分類（4, 6, 7 のみ）。
+      -- 平行線の推移律および共点配置の幾何的性質より、切断領域数は4または6に限定される。
       sorry
     rcases h_cases with hle4 | heq6 <;> omega
 
