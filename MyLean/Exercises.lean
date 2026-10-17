@@ -1,4 +1,5 @@
 import MyLean.Exercises.«kyoto-university».«2006late».Proof
+import MyLean.Exercises.«science-tokyo».«2019».Proof
 
 /-!
 # 演習・課題ハブモジュール (MyLean.Exercises)
