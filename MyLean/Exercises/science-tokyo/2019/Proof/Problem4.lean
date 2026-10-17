@@ -4636,6 +4636,11 @@ lemma inner_e2Vec (p : Space3) :
   change (0 : ℝ) * p 0 + (0 : ℝ) * p 1 + (1 : ℝ) * p 2 = p 2
   ring
 
+/-- 点 p が平面 zPlane c に属する必要十分条件は p 2 = c である。 -/
+lemma mem_zPlane (c : ℝ) (p : Space3) : p ∈ (zPlane c).toSet ↔ p 2 = c := by
+  dsimp [Plane3.toSet, zPlane]
+  rw [inner_e2Vec]
+
 /-- z軸上の点 $(0, 0, z)$。 -/
 def ptZ (z : ℝ) : Space3 :=
   (WithLp.equiv 2 (Fin 3 → ℝ)).symm ![(0 : ℝ), 0, z]
@@ -6475,9 +6480,7 @@ lemma spaceRegionsCount_equiv (n : ℕ) (H : Fin n → Plane3) (e : Fin n ≃ Fi
   exact congrArg (fun (s : Set Space3) =>
     Nat.card (ConnectedComponents (↥s))) h_set
 
-/-- 3枚の平面が一般の位置にあるとき、第4平面による切断空間領域数は5になり得ない。
-第4平面上に誘導される3本の交線系が定める2次元平面領域数は、
-一般の位置であれば7、平行または共点であれば高々6となり、5は飛び番として現れない。 -/
+/-- 3枚の平面が一般の位置にあるとき、第4平面による切断空間領域数は5になり得ない。 -/
 lemma splitSpaceRegionsCount_three_ne_five (H : Fin 4 → Plane3)
     (hgen : GeneralPositionPlanes 3 (H ∘ Fin.castSucc))
     (h_not_par : ∀ i : Fin 3,
@@ -6493,24 +6496,21 @@ lemma splitSpaceRegionsCount_three_ne_five (H : Fin 4 → Plane3)
   · have h7 := splitSpaceRegionsCount_eq_of_traceLines 3 H h_not_par hgen_lines
     rw [h_max3] at h7
     omega
-  · -- 交線系が一般の位置にないとき、平面領域数は4以下または6となり、5にはならない。
-    have h_split_cases : splitSpaceRegionsCount 3 H ≤ 4 ∨
-        splitSpaceRegionsCount 3 H = 6 ∨
-        splitSpaceRegionsCount 3 H = 7 := by
-      -- 平面上の高々3本の直線配置による領域数は4以下、6、または7に限られる。
+  · -- 交線系 L' の平面領域数は ≤ 4 または 6 である。
+    have h_cases : splitSpaceRegionsCount 3 H ≤ 4 ∨ splitSpaceRegionsCount 3 H = 6 := by
+      -- 平面領域数の離散分類（4, 6, 7 のみ）。
       sorry
-    rcases h_split_cases with hle4 | heq6 | heq7 <;> omega
+    rcases h_cases with hle4 | heq6 <;> omega
 
-/-- どの2平面も平行でなく、どの3平面も一般の位置にない4平面配置の領域数は高々11である。
-法線ベクトルが同一の2次元部分空間に含まれるため、
-共通の交線方向に直交する2次元断面の4直線配置に帰着され、最大領域数は11となる。 -/
+/-- どの2平面も平行でなく、どの3平面も一般の位置にない4平面配置の領域数は高々11である。 -/
 lemma spaceRegionsCount_four_le_eleven_of_not_general (H : Fin 4 → Plane3)
     (h_not_par : ∀ i j, i ≠ j → ¬ parallelPlanes (H i) (H j))
     (h_not_gen : ∀ i : Fin 4,
       ¬ GeneralPositionPlanes 3 (H ∘ Fin.succAbove i)) :
     spaceRegionsCount 4 H ≤ 11 := by
   have h_max4 : maxPlaneRegions 4 = 11 := by decide
-  -- 4平面は共通の方向ベクトルに平行な柱面配置となり、平面上の4直線配置の最大領域数11で抑えられる。
+  -- 法線が共面なため、空間分割は2次元断面の4本の直線配置に同型となり、
+  -- 領域数は planeRegionsCount 4 L ≤ maxPlaneRegions 4 = 11 で抑えられる。
   sorry
 
 /-- 4枚の相異なる平面配置において、
@@ -6588,6 +6588,159 @@ lemma inner_v0_ptXYZ (x y z : ℝ) :
 lemma inner_v1_ptXYZ (x y z : ℝ) :
     @inner ℝ Space3 _ v1_vec (ptXYZ x y z) = y := by
   rw [inner_v1_vec, ptXYZ_apply_one]
+
+lemma inner_v2_ptXYZ (x y z : ℝ) :
+    @inner ℝ Space3 _ v2_vec (ptXYZ x y z) = x + y := by
+  rw [inner_v2_vec, ptXYZ_apply_zero, ptXYZ_apply_one]
+
+lemma inner_momentVec_ptXYZ (t x y z : ℝ) :
+    @inner ℝ Space3 _ (momentVec t) (ptXYZ x y z) = x + t * y + t ^ 2 * z := by
+  rw [inner_momentVec, ptXYZ_apply_zero, ptXYZ_apply_one, ptXYZ_apply_two]
+
+lemma ptXYZ_ext_iff (p : Space3) (x y z : ℝ) :
+    p = ptXYZ x y z ↔ p 0 = x ∧ p 1 = y ∧ p 2 = z := by
+  constructor
+  · rintro rfl; exact ⟨rfl, rfl, rfl⟩
+  · rintro ⟨hx, hy, hz⟩
+    ext i
+    fin_cases i <;> assumption
+
+lemma mem_plane_x0_ptXYZ (x y z : ℝ) : ptXYZ x y z ∈ plane_x0.toSet ↔ x = 0 := by
+  rw [mem_plane_x0, ptXYZ_apply_zero]
+
+lemma mem_plane_y0_ptXYZ (x y z : ℝ) : ptXYZ x y z ∈ plane_y0.toSet ↔ y = 0 := by
+  rw [mem_plane_y0, ptXYZ_apply_one]
+
+lemma mem_plane_xy1_ptXYZ (x y z : ℝ) : ptXYZ x y z ∈ plane_xy1.toSet ↔ x + y = 1 := by
+  rw [mem_plane_xy1, ptXYZ_apply_zero, ptXYZ_apply_one]
+
+lemma mem_zPlane_ptXYZ (c x y z : ℝ) : ptXYZ x y z ∈ (zPlane c).toSet ↔ z = c := by
+  rw [mem_zPlane, ptXYZ_apply_two]
+
+lemma mem_momentPlane_ptXYZ (t x y z : ℝ) :
+    ptXYZ x y z ∈ (momentPlane t).toSet ↔ x + t * y + t ^ 2 * z = t ^ 3 := by
+  dsimp [Plane3.toSet, momentPlane]
+  rw [inner_momentVec_ptXYZ]
+
+/-- 平面 x = 0, z = 3 とモーメント平面の交わりはちょうど1点である。 -/
+lemma intersection_plane_x0_zPlane3_momentPlane {t : ℝ} (ht : t ≠ 0) :
+    ∃ q : Space3, plane_x0.toSet ∩ (zPlane 3).toSet ∩ (momentPlane t).toSet = {q} := by
+  let q : Space3 := ptXYZ 0 (t ^ 2 - 3 * t) 3
+  use q
+  ext p
+  simp only [Set.mem_inter_iff, mem_plane_x0, mem_zPlane, mem_momentPlane,
+    Set.mem_singleton_iff]
+  constructor
+  · rintro ⟨⟨hx, hz⟩, hm⟩
+    have hy : p 1 = t ^ 2 - 3 * t := by
+      have ht_mul : t * p 1 = t * (t ^ 2 - 3 * t) := by
+        calc t * p 1 = (p 0 + t * p 1 + t ^ 2 * p 2) - p 0 - t ^ 2 * p 2 := by ring
+        _ = t ^ 3 - 0 - t ^ 2 * 3 := by rw [hm, hx, hz]
+        _ = t * (t ^ 2 - 3 * t) := by ring
+      exact mul_left_cancel₀ ht ht_mul
+    rw [ptXYZ_ext_iff]
+    exact ⟨hx, hy, hz⟩
+  · rintro rfl
+    dsimp [q]
+    rw [ptXYZ_apply_zero, ptXYZ_apply_one, ptXYZ_apply_two]
+    refine ⟨⟨rfl, rfl⟩, ?_⟩
+    ring
+
+/-- 平面 y = 0, z = 3 とモーメント平面の交わりはちょうど1点である。 -/
+lemma intersection_plane_y0_zPlane3_momentPlane {t : ℝ} :
+    ∃ q : Space3, plane_y0.toSet ∩ (zPlane 3).toSet ∩ (momentPlane t).toSet = {q} := by
+  let q : Space3 := ptXYZ (t ^ 3 - 3 * t ^ 2) 0 3
+  use q
+  ext p
+  simp only [Set.mem_inter_iff, mem_plane_y0, mem_zPlane, mem_momentPlane,
+    Set.mem_singleton_iff]
+  constructor
+  · rintro ⟨⟨hy, hz⟩, hm⟩
+    have hx : p 0 = t ^ 3 - 3 * t ^ 2 := by
+      calc p 0 = (p 0 + t * p 1 + t ^ 2 * p 2) - t * p 1 - t ^ 2 * p 2 := by ring
+      _ = t ^ 3 - t * 0 - t ^ 2 * 3 := by rw [hm, hy, hz]
+      _ = t ^ 3 - 3 * t ^ 2 := by ring
+    rw [ptXYZ_ext_iff]
+    exact ⟨hx, hy, hz⟩
+  · rintro rfl
+    dsimp [q]
+    rw [ptXYZ_apply_zero, ptXYZ_apply_one, ptXYZ_apply_two]
+    refine ⟨⟨rfl, rfl⟩, ?_⟩
+    ring
+
+/-- 平面 x + y = 1, z = 3 とモーメント平面の交わりはちょうど1点である。 -/
+lemma intersection_plane_xy1_zPlane3_momentPlane {t : ℝ} (ht1 : t ≠ 1) :
+    ∃ q : Space3, plane_xy1.toSet ∩ (zPlane 3).toSet ∩ (momentPlane t).toSet = {q} := by
+  let y_val := (t ^ 3 - 3 * t ^ 2 - 1) / (t - 1)
+  let q : Space3 := ptXYZ (1 - y_val) y_val 3
+  use q
+  ext p
+  simp only [Set.mem_inter_iff, mem_plane_xy1, mem_zPlane, mem_momentPlane,
+    Set.mem_singleton_iff]
+  constructor
+  · rintro ⟨⟨hxy, hz⟩, hm⟩
+    have hy : p 1 = y_val := by
+      have h_sub : (t - 1) * p 1 = (t - 1) * y_val := by
+        calc (t - 1) * p 1 = (p 0 + t * p 1 + t ^ 2 * p 2) - (p 0 + p 1) - t ^ 2 * p 2 := by ring
+        _ = t ^ 3 - 1 - t ^ 2 * 3 := by rw [hm, hxy, hz]
+        _ = (t - 1) * y_val := by
+          dsimp [y_val]
+          rw [mul_div_cancel₀ _ (sub_ne_zero.mpr ht1)]
+          ring
+      exact mul_left_cancel₀ (sub_ne_zero.mpr ht1) h_sub
+    have hx : p 0 = 1 - y_val := by
+      calc p 0 = (p 0 + p 1) - p 1 := by ring
+      _ = 1 - y_val := by rw [hxy, hy]
+    rw [ptXYZ_ext_iff]
+    exact ⟨hx, hy, hz⟩
+  · rintro rfl
+    dsimp [q]
+    rw [ptXYZ_apply_zero, ptXYZ_apply_one, ptXYZ_apply_two]
+    refine ⟨⟨by ring, rfl⟩, ?_⟩
+    dsimp [y_val]
+    have h_cancel : (t - 1) * ((t ^ 3 - 3 * t ^ 2 - 1) / (t - 1)) = t ^ 3 - 3 * t ^ 2 - 1 :=
+      mul_div_cancel₀ _ (sub_ne_zero.mpr ht1)
+    calc (1 - (t ^ 3 - 3 * t ^ 2 - 1) / (t - 1)) +
+         t * ((t ^ 3 - 3 * t ^ 2 - 1) / (t - 1)) + t ^ 2 * 3
+      _ = 1 + (t - 1) * ((t ^ 3 - 3 * t ^ 2 - 1) / (t - 1)) + 3 * t ^ 2 := by ring
+      _ = 1 + (t ^ 3 - 3 * t ^ 2 - 1) + 3 * t ^ 2 := by rw [h_cancel]
+      _ = t ^ 3 := by ring
+
+/-- 2枚のモーメント平面と平面 z = 3 の交わりはちょうど1点である。 -/
+lemma intersection_momentPlane_zPlane3_momentPlane {t₁ t₂ : ℝ} (h12 : t₁ ≠ t₂) :
+    ∃ q : Space3, (momentPlane t₁).toSet ∩ (zPlane 3).toSet ∩ (momentPlane t₂).toSet = {q} := by
+  let y_val := t₁ ^ 2 + t₁ * t₂ + t₂ ^ 2 - 3 * (t₁ + t₂)
+  let x_val := t₁ ^ 3 - 3 * t₁ ^ 2 - t₁ * y_val
+  let q : Space3 := ptXYZ x_val y_val 3
+  use q
+  ext p
+  simp only [Set.mem_inter_iff, mem_momentPlane, mem_zPlane, Set.mem_singleton_iff]
+  constructor
+  · rintro ⟨⟨hm1, hz⟩, hm2⟩
+    have hy : p 1 = y_val := by
+      have h_sub : (t₂ - t₁) * p 1 = (t₂ - t₁) * y_val := by
+        calc (t₂ - t₁) * p 1 = (p 0 + t₂ * p 1 + t₂ ^ 2 * p 2) -
+                               (p 0 + t₁ * p 1 + t₁ ^ 2 * p 2) - (t₂ ^ 2 - t₁ ^ 2) * p 2 := by ring
+        _ = t₂ ^ 3 - t₁ ^ 3 - (t₂ ^ 2 - t₁ ^ 2) * 3 := by rw [hm2, hm1, hz]
+        _ = (t₂ - t₁) * y_val := by
+          dsimp [y_val]
+          ring
+      have h_ne : t₂ - t₁ ≠ 0 := sub_ne_zero.mpr (Ne.symm h12)
+      exact mul_left_cancel₀ h_ne h_sub
+    have hx : p 0 = x_val := by
+      calc p 0 = (p 0 + t₁ * p 1 + t₁ ^ 2 * p 2) - t₁ * p 1 - t₁ ^ 2 * p 2 := by ring
+      _ = t₁ ^ 3 - t₁ * y_val - t₁ ^ 2 * 3 := by rw [hm1, hy, hz]
+      _ = x_val := by dsimp [x_val]; ring
+    rw [ptXYZ_ext_iff]
+    exact ⟨hx, hy, hz⟩
+  · rintro rfl
+    dsimp [q]
+    rw [ptXYZ_apply_zero, ptXYZ_apply_one, ptXYZ_apply_two]
+    refine ⟨⟨?_, rfl⟩, ?_⟩
+    · dsimp [x_val]
+      ring
+    · dsimp [x_val, y_val]
+      ring
 
 /-- $n = 3$ において領域数6を達成する配置: $z = 0$, $z = 1$, $x = 0$ -/
 def H_three_six : Fin 3 → Plane3 :=
@@ -7007,6 +7160,56 @@ lemma H_third_hybrid_castSucc (n : ℕ) :
   ext ⟨i, hi⟩
   dsimp [H_third_hybrid]
 
+/-- インデックスが 4 以外の平面は H_hybrid と完全に一致する。 -/
+lemma H_third_hybrid_eq_H_hybrid {n : ℕ} (i : Fin n) (hi : i.val ≠ 4) :
+    H_third_hybrid n i = H_hybrid n i := by
+  dsimp [H_third_hybrid, H_hybrid]
+  by_cases h0 : i.val = 0 <;> simp [h0]
+  by_cases h1 : i.val = 1 <;> simp [h1]
+  by_cases h2 : i.val = 2 <;> simp [h2]
+  by_cases h3 : i.val = 3 <;> simp [h3, hi]
+
+/-- n ≥ 5 のとき、最後の平面はモーメント平面 momentPlane n である。 -/
+lemma H_third_hybrid_last_eq_momentPlane {n : ℕ} (hn : 5 ≤ n) :
+    H_third_hybrid (n + 1) (Fin.last n) = momentPlane (n : ℝ) := by
+  unfold H_third_hybrid
+  have h0 : n ≠ 0 := by omega
+  have h1 : n ≠ 1 := by omega
+  have h2 : n ≠ 2 := by omega
+  have h3 : n ≠ 3 := by omega
+  have h4 : n ≠ 4 := by omega
+  simp [h0, h1, h2, h3, h4]
+
+lemma H_third_hybrid_of_val_zero {n : ℕ} (i : Fin n) (hi : i.val = 0) :
+    H_third_hybrid n i = plane_x0 := by
+  unfold H_third_hybrid; simp [hi]
+
+lemma H_third_hybrid_of_val_one {n : ℕ} (i : Fin n) (hi : i.val = 1) :
+    H_third_hybrid n i = plane_y0 := by
+  unfold H_third_hybrid; simp [hi]
+
+lemma H_third_hybrid_of_val_two {n : ℕ} (i : Fin n) (hi : i.val = 2) :
+    H_third_hybrid n i = plane_xy1 := by
+  unfold H_third_hybrid; simp [hi]
+
+lemma H_third_hybrid_of_val_three {n : ℕ} (i : Fin n) (hi : i.val = 3) :
+    H_third_hybrid n i = momentPlane 3 := by
+  unfold H_third_hybrid; simp [hi]
+
+lemma H_third_hybrid_of_val_four {n : ℕ} (i : Fin n) (hi : i.val = 4) :
+    H_third_hybrid n i = zPlane 3 := by
+  unfold H_third_hybrid; simp [hi]
+
+lemma H_third_hybrid_of_val_ge {n : ℕ} (i : Fin n) (hi : 5 ≤ i.val) :
+    H_third_hybrid n i = momentPlane (i.val : ℝ) := by
+  unfold H_third_hybrid
+  have h0 : ¬ i.val = 0 := by omega
+  have h1 : ¬ i.val = 1 := by omega
+  have h2 : ¬ i.val = 2 := by omega
+  have h3 : ¬ i.val = 3 := by omega
+  have h4 : ¬ i.val = 4 := by omega
+  simp [h0, h1, h2, h3, h4]
+
 set_option linter.flexible false in
 /-- ハイブリッド配置 H_third_hybrid の任意の相異なる2平面は平行でない。 -/
 lemma not_parallel_third_hybrid {n : ℕ} (i j : Fin n) (hij : i < j) :
@@ -7130,17 +7333,393 @@ lemma distinctPlanes_third_hybrid (n : ℕ) (_hn : 5 ≤ n) :
     have h_par := parallelPlanes_of_toSet_eq (H_third_hybrid n j) (H_third_hybrid n i) hij.symm
     exact h_not h_par
 
-/-- n = 5 のとき、配置の領域数は24である。 -/
+/-- H_third_hybrid 4 の先頭3枚は H_three_prism と一致する。 -/
+lemma H_third_hybrid_four_castSucc_eq :
+    (H_third_hybrid 4 ∘ Fin.castSucc) = H_three_prism := by
+  ext i; fin_cases i <;> rfl
+
+lemma inner_plane_xy1_ptXYZ (x y z : ℝ) :
+    @inner ℝ Space3 _ plane_xy1.normVec (ptXYZ x y z) = x + y := by
+  dsimp [plane_xy1]
+  rw [inner_v2_vec, ptXYZ_apply_zero, ptXYZ_apply_one]
+
+lemma inner_momentPlane3_ptXYZ (x y z : ℝ) :
+    @inner ℝ Space3 _ (momentPlane 3).normVec (ptXYZ x y z) = x + 3 * y + 9 * z := by
+  dsimp [momentPlane]
+  rw [inner_momentVec, ptXYZ_apply_zero, ptXYZ_apply_one, ptXYZ_apply_two]
+  ring
+
+lemma mem_zPlane3_ptXYZ (x y : ℝ) : ptXYZ x y 3 ∈ (zPlane 3).toSet := by
+  dsimp [Plane3.toSet, zPlane]
+  rw [inner_e2Vec_ptXYZ]
+
+/-- 符号 (F, F, T, F) に対応する切断領域は空集合である。 -/
+lemma split_third_hybrid_empty_FFTF :
+    ¬ isSplitByPlane (convexSpaceRegion 4 (H_third_hybrid 4)
+      ![(false : Bool), false, true, false]) (zPlane 3) := by
+  rintro ⟨p, hp, _hpz⟩
+  have h0 := hp 0; have h1 := hp 1; have h2 := hp 2
+  dsimp [convexSpaceRegion, H_third_hybrid, plane_x0, plane_y0, plane_xy1] at h0 h1 h2
+  rw [inner_v0_vec] at h0; rw [inner_v1_vec] at h1; rw [inner_v2_vec] at h2
+  linarith
+
+/-- 符号 (F, F, T, T) に対応する切断領域は空集合である。 -/
+lemma split_third_hybrid_empty_FFTT :
+    ¬ isSplitByPlane (convexSpaceRegion 4 (H_third_hybrid 4)
+      ![(false : Bool), false, true, true]) (zPlane 3) := by
+  rintro ⟨p, hp, _hpz⟩
+  have h0 := hp 0; have h1 := hp 1; have h2 := hp 2
+  dsimp [convexSpaceRegion, H_third_hybrid, plane_x0, plane_y0, plane_xy1] at h0 h1 h2
+  rw [inner_v0_vec] at h0; rw [inner_v1_vec] at h1; rw [inner_v2_vec] at h2
+  linarith
+
+/-- 符号 (T, T, F, F) に対応する切断領域は空集合である。 -/
+lemma split_third_hybrid_empty_TTFF :
+    ¬ isSplitByPlane (convexSpaceRegion 4 (H_third_hybrid 4)
+      ![(true : Bool), true, false, false]) (zPlane 3) := by
+  rintro ⟨p, hp, hpz⟩
+  have h0 := hp 0; have h1 := hp 1; have h3 := hp 3
+  dsimp [convexSpaceRegion, H_third_hybrid, plane_x0, plane_y0, momentPlane] at h0 h1 h3
+  rw [inner_v0_vec] at h0; rw [inner_v1_vec] at h1; rw [inner_momentVec] at h3
+  dsimp [Plane3.toSet, zPlane] at hpz; rw [inner_e2Vec] at hpz
+  linarith
+
+/-- 符号 (T, T, T, F) に対応する切断領域は空集合である。 -/
+lemma split_third_hybrid_empty_TTTF :
+    ¬ isSplitByPlane (convexSpaceRegion 4 (H_third_hybrid 4)
+      ![(true : Bool), true, true, false]) (zPlane 3) := by
+  rintro ⟨p, hp, hpz⟩
+  have h0 := hp 0; have h1 := hp 1; have h3 := hp 3
+  dsimp [convexSpaceRegion, H_third_hybrid, plane_x0, plane_y0, momentPlane] at h0 h1 h3
+  rw [inner_v0_vec] at h0; rw [inner_v1_vec] at h1; rw [inner_momentVec] at h3
+  dsimp [Plane3.toSet, zPlane] at hpz; rw [inner_e2Vec] at hpz
+  linarith
+
+/-- 符号 (F, F, F, T) に対応する切断領域は空集合である。 -/
+lemma split_third_hybrid_empty_FFFT :
+    ¬ isSplitByPlane (convexSpaceRegion 4 (H_third_hybrid 4)
+      ![(false : Bool), false, false, true]) (zPlane 3) := by
+  rintro ⟨p, hp, hpz⟩
+  have h0 := hp 0; have h1 := hp 1; have h3 := hp 3
+  dsimp [convexSpaceRegion, H_third_hybrid, plane_x0, plane_y0, momentPlane] at h0 h1 h3
+  rw [inner_v0_vec] at h0; rw [inner_v1_vec] at h1; rw [inner_momentVec] at h3
+  dsimp [Plane3.toSet, zPlane] at hpz; rw [inner_e2Vec] at hpz
+  linarith
+
+/-- 符号 (F, T, T, F) に対応する切断領域は空集合である。 -/
+lemma split_third_hybrid_empty_FTTF :
+    ¬ isSplitByPlane (convexSpaceRegion 4 (H_third_hybrid 4)
+      ![(false : Bool), true, true, false]) (zPlane 3) := by
+  rintro ⟨p, hp, hpz⟩
+  have h0 := hp 0; have h2 := hp 2; have h3 := hp 3
+  dsimp [convexSpaceRegion, H_third_hybrid, plane_x0, plane_xy1, momentPlane] at h0 h2 h3
+  rw [inner_v0_vec] at h0; rw [inner_v2_vec] at h2; rw [inner_momentVec] at h3
+  dsimp [Plane3.toSet, zPlane] at hpz; rw [inner_e2Vec] at hpz
+  linarith
+
+/-- 代表点を与えることで切断領域の非空性を示す。 -/
+lemma split_third_hybrid_nonempty (σ : Fin 4 → Bool) (x y : ℝ)
+    (h0 : if σ 0 then 0 < x else x < 0)
+    (h1 : if σ 1 then 0 < y else y < 0)
+    (h2 : if σ 2 then 1 < x + y else x + y < 1)
+    (h3 : if σ 3 then 27 < x + 3 * y + 27 else x + 3 * y + 27 < 27) :
+    isSplitByPlane (convexSpaceRegion 4 (H_third_hybrid 4) σ) (zPlane 3) := by
+  refine ⟨ptXYZ x y 3, ?_, mem_zPlane3_ptXYZ x y⟩
+  intro i
+  fin_cases i
+  · dsimp [convexSpaceRegion, H_third_hybrid, plane_x0]
+    rw [inner_v0_ptXYZ]
+    exact h0
+  · dsimp [convexSpaceRegion, H_third_hybrid, plane_y0]
+    rw [inner_v1_ptXYZ]
+    exact h1
+  · dsimp [convexSpaceRegion, H_third_hybrid, plane_xy1]
+    rw [inner_v2_vec, ptXYZ_apply_zero, ptXYZ_apply_one]
+    exact h2
+  · dsimp [convexSpaceRegion, H_third_hybrid, momentPlane]
+    rw [inner_momentVec, ptXYZ_apply_zero, ptXYZ_apply_one, ptXYZ_apply_two]
+    have h_pow2 : (3 : ℝ) ^ 2 * 3 = 27 := by norm_num
+    have h_pow3 : (3 : ℝ) ^ 3 = 27 := by norm_num
+    rw [h_pow2, h_pow3]
+    exact h3
+
+/-- n = 5 のとき、配置の領域数は24である。
+三角柱(7) + 第4平面切断(7) + 第5平面切断(10) = 24 として計算される。 -/
 lemma spaceRegionsCount_third_hybrid_five :
     spaceRegionsCount 5 (H_third_hybrid 5) = 24 := by
-  -- 三角柱の7領域に第4平面が加わって14領域となり、点(0,0,3)を通る第5平面の切断領域10が加わって24となる。
-  sorry
+  -- T(5) = T(4) + split(4, H5)
+  have h_succ4 := spaceRegionsCount_succ_eq_add_split 4 (H_third_hybrid 5)
+  rw [H_third_hybrid_castSucc 4] at h_succ4
+  rw [h_succ4]
+  -- T(4) = T(3) + split(3, H4)
+  have h_succ3 := spaceRegionsCount_succ_eq_add_split 3 (H_third_hybrid 4)
+  have h_cast3 : (H_third_hybrid 4 ∘ Fin.castSucc) = H_three_prism :=
+    H_third_hybrid_four_castSucc_eq
+  rw [h_cast3, spaceRegionsCount_three_prism_eq_seven] at h_succ3
+  rw [h_succ3]
+  -- split(3, H4) = 7 および split(4, H5) = 10 を代入する。
+  have h_split3 : splitSpaceRegionsCount 3 (H_third_hybrid 4) = 7 := by
+    have h_eq4 : H_third_hybrid 4 = H_hybrid 4 := by
+      ext i; fin_cases i <;> rfl
+    rw [h_eq4]
+    have h_sp := splitSpaceRegionsCount_hybrid 3 (by omega)
+    rw [h_sp]
+    rfl
+  have h_split4 : splitSpaceRegionsCount 4 (H_third_hybrid 5) = 10 := by
+    dsimp [splitSpaceRegionsCount]
+    rw [H_third_hybrid_castSucc 4]
+    change (Finset.filter (fun σ =>
+      isSplitByPlane (convexSpaceRegion 4 (H_third_hybrid 4) σ)
+        (H_third_hybrid 5 (Fin.last 4))) Finset.univ).card = 10
+    have h_last : H_third_hybrid 5 (Fin.last 4) = zPlane 3 := rfl
+    rw [h_last]
+    have hs : (Finset.filter (fun σ =>
+        isSplitByPlane (convexSpaceRegion 4 (H_third_hybrid 4) σ) (zPlane 3)) Finset.univ) =
+        {![(true : Bool), true, true, true],
+         ![(true : Bool), true, false, true],
+         ![(true : Bool), false, true, true],
+         ![(true : Bool), false, false, true],
+         ![(true : Bool), false, true, false],
+         ![(true : Bool), false, false, false],
+         ![(false : Bool), true, true, true],
+         ![(false : Bool), true, false, true],
+         ![(false : Bool), true, false, false],
+         ![(false : Bool), false, false, false]} := by
+      ext σ
+      simp only [Finset.mem_filter, Finset.mem_univ, true_and,
+        Finset.mem_insert, Finset.mem_singleton]
+      constructor
+      · intro hsplit
+        have h0 : σ 0 = false ∨ σ 0 = true := by cases σ 0 <;> simp
+        have h1 : σ 1 = false ∨ σ 1 = true := by cases σ 1 <;> simp
+        have h2 : σ 2 = false ∨ σ 2 = true := by cases σ 2 <;> simp
+        have h3 : σ 3 = false ∨ σ 3 = true := by cases σ 3 <;> simp
+        rcases h0 with h0 | h0 <;> rcases h1 with h1 | h1 <;>
+          rcases h2 with h2 | h2 <;> rcases h3 with h3 | h3
+        · right; right; right; right; right; right; right; right; right
+          ext i; fin_cases i <;> assumption
+        · exfalso
+          have h_eq : σ = ![(false : Bool), false, false, true] := by
+            ext i; fin_cases i <;> assumption
+          subst h_eq
+          exact split_third_hybrid_empty_FFFT hsplit
+        · exfalso
+          have h_eq : σ = ![(false : Bool), false, true, false] := by
+            ext i; fin_cases i <;> assumption
+          subst h_eq
+          exact split_third_hybrid_empty_FFTF hsplit
+        · exfalso
+          have h_eq : σ = ![(false : Bool), false, true, true] := by
+            ext i; fin_cases i <;> assumption
+          subst h_eq
+          exact split_third_hybrid_empty_FFTT hsplit
+        · right; right; right; right; right; right; right; right; left
+          ext i; fin_cases i <;> assumption
+        · right; right; right; right; right; right; right; left
+          ext i; fin_cases i <;> assumption
+        · exfalso
+          have h_eq : σ = ![(false : Bool), true, true, false] := by
+            ext i; fin_cases i <;> assumption
+          subst h_eq
+          exact split_third_hybrid_empty_FTTF hsplit
+        · right; right; right; right; right; right; left
+          ext i; fin_cases i <;> assumption
+        · right; right; right; right; right; left
+          ext i; fin_cases i <;> assumption
+        · right; right; right; left
+          ext i; fin_cases i <;> assumption
+        · right; right; right; right; left
+          ext i; fin_cases i <;> assumption
+        · right; right; left
+          ext i; fin_cases i <;> assumption
+        · exfalso
+          have h_eq : σ = ![(true : Bool), true, false, false] := by
+            ext i; fin_cases i <;> assumption
+          subst h_eq
+          exact split_third_hybrid_empty_TTFF hsplit
+        · right; left
+          ext i; fin_cases i <;> assumption
+        · exfalso
+          have h_eq : σ = ![(true : Bool), true, true, false] := by
+            ext i; fin_cases i <;> assumption
+          subst h_eq
+          exact split_third_hybrid_empty_TTTF hsplit
+        · left
+          ext i; fin_cases i <;> assumption
+      · rintro (rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl)
+        · exact split_third_hybrid_nonempty _ 2 2
+            (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+        · exact split_third_hybrid_nonempty _ (1/4) (1/4)
+            (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+        · exact split_third_hybrid_nonempty _ 3 (-1/2)
+            (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+        · exact split_third_hybrid_nonempty _ (1/2) (-1/8)
+            (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+        · exact split_third_hybrid_nonempty _ 3 (-4/3)
+            (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+        · exact split_third_hybrid_nonempty _ (1/2) (-1/4)
+            (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+        · exact split_third_hybrid_nonempty _ (-1/2) 2
+            (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+        · exact split_third_hybrid_nonempty _ (-1/4) (1/2)
+            (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+        · exact split_third_hybrid_nonempty _ (-2) (1/2)
+            (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+        · exact split_third_hybrid_nonempty _ (-1) (-1)
+            (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+    rw [hs]
+    decide
+  omega
+
+/-- H_third_hybrid において、$i ≠ j$ なる任意の2平面と最後のモーメント平面の交わりはちょうど1点である。 -/
+lemma intersection_three_third_hybrid (n : ℕ) (hn : 5 ≤ n) (i j : Fin n) (hij : i ≠ j) :
+    ∃ q, (H_third_hybrid (n + 1) (Fin.castSucc i)).toSet ∩
+      (H_third_hybrid (n + 1) (Fin.castSucc j)).toSet ∩
+      (H_third_hybrid (n + 1) (Fin.last n)).toSet = {q} := by
+  have h_last : H_third_hybrid (n + 1) (Fin.last n) = momentPlane (n : ℝ) :=
+    H_third_hybrid_last_eq_momentPlane hn
+  have hn_pos : (n : ℝ) ≠ 0 := by
+    have : n ≠ 0 := by omega
+    exact Nat.cast_ne_zero.mpr this
+  have hn_ne1 : (n : ℝ) ≠ 1 := by
+    have : n ≠ 1 := by omega
+    exact_mod_cast this
+  have h_symm : ∀ a b : Fin n, a ≠ b → a < b →
+      ∃ q, (H_third_hybrid (n + 1) (Fin.castSucc a)).toSet ∩
+        (H_third_hybrid (n + 1) (Fin.castSucc b)).toSet ∩
+        (H_third_hybrid (n + 1) (Fin.last n)).toSet = {q} := by
+    intro a b hab_ne hab_lt
+    have ha_val : (Fin.castSucc a).val = a.val := rfl
+    have hb_val : (Fin.castSucc b).val = b.val := rfl
+    by_cases ha4 : a.val = 4
+    · have hb_ge : 5 ≤ (Fin.castSucc b).val := by rw [hb_val]; omega
+      have ha_eq : H_third_hybrid (n + 1) (Fin.castSucc a) = zPlane 3 :=
+        H_third_hybrid_of_val_four (Fin.castSucc a) (by rw [ha_val, ha4])
+      have hb_eq : H_third_hybrid (n + 1) (Fin.castSucc b) = momentPlane (b.val : ℝ) :=
+        H_third_hybrid_of_val_ge (Fin.castSucc b) hb_ge
+      rw [ha_eq, hb_eq, h_last]
+      have hbn_ne : (b.val : ℝ) ≠ (n : ℝ) := by
+        have : b.val ≠ n := b.is_lt.ne
+        exact_mod_cast this
+      have h_inter := intersection_momentPlane_zPlane3_momentPlane hbn_ne
+      rcases h_inter with ⟨q, hq⟩
+      use q
+      have h_comm : (zPlane 3).toSet ∩ (momentPlane (b.val : ℝ)).toSet =
+          (momentPlane (b.val : ℝ)).toSet ∩ (zPlane 3).toSet := Set.inter_comm _ _
+      rw [h_comm]
+      exact hq
+    · by_cases hb4 : b.val = 4
+      · have hb_eq : H_third_hybrid (n + 1) (Fin.castSucc b) = zPlane 3 :=
+          H_third_hybrid_of_val_four (Fin.castSucc b) (by rw [hb_val, hb4])
+        rw [hb_eq, h_last]
+        by_cases ha0 : a.val = 0
+        · have ha_eq : H_third_hybrid (n + 1) (Fin.castSucc a) = plane_x0 :=
+            H_third_hybrid_of_val_zero (Fin.castSucc a) (by rw [ha_val, ha0])
+          rw [ha_eq]
+          exact intersection_plane_x0_zPlane3_momentPlane hn_pos
+        · by_cases ha1 : a.val = 1
+          · have ha_eq : H_third_hybrid (n + 1) (Fin.castSucc a) = plane_y0 :=
+              H_third_hybrid_of_val_one (Fin.castSucc a) (by rw [ha_val, ha1])
+            rw [ha_eq]
+            exact intersection_plane_y0_zPlane3_momentPlane
+          · by_cases ha2 : a.val = 2
+            · have ha_eq : H_third_hybrid (n + 1) (Fin.castSucc a) = plane_xy1 :=
+                H_third_hybrid_of_val_two (Fin.castSucc a) (by rw [ha_val, ha2])
+              rw [ha_eq]
+              exact intersection_plane_xy1_zPlane3_momentPlane hn_ne1
+            · have ha3 : a.val = 3 := by omega
+              have ha_eq : H_third_hybrid (n + 1) (Fin.castSucc a) = momentPlane 3 :=
+                H_third_hybrid_of_val_three (Fin.castSucc a) (by rw [ha_val, ha3])
+              rw [ha_eq]
+              have h3n_ne : (3 : ℝ) ≠ (n : ℝ) := by
+                have : 3 ≠ n := by omega
+                exact_mod_cast this
+              exact intersection_momentPlane_zPlane3_momentPlane h3n_ne
+      · have ha_eq : H_third_hybrid (n + 1) (Fin.castSucc a) =
+            H_hybrid (n + 1) (Fin.castSucc a) :=
+          H_third_hybrid_eq_H_hybrid (Fin.castSucc a) (by rw [ha_val]; exact ha4)
+        have hb_eq : H_third_hybrid (n + 1) (Fin.castSucc b) =
+            H_hybrid (n + 1) (Fin.castSucc b) :=
+          H_third_hybrid_eq_H_hybrid (Fin.castSucc b) (by rw [hb_val]; exact hb4)
+        have h_last_eq : H_third_hybrid (n + 1) (Fin.last n) =
+            H_hybrid (n + 1) (Fin.last n) := by
+          have hn_ne4 : (Fin.last n).val ≠ 4 := by
+            change n ≠ 4
+            omega
+          exact H_third_hybrid_eq_H_hybrid (Fin.last n) hn_ne4
+        rw [ha_eq, hb_eq, h_last_eq]
+        have hn3 : 3 ≤ n := by omega
+        exact intersection_three_hybrid n hn3 a b hab_ne
+  rcases lt_or_gt_of_ne hij with h_lt | h_gt
+  · exact h_symm i j hij h_lt
+  · rcases h_symm j i hij.symm h_gt with ⟨q, hq⟩
+    use q
+    have h_comm : (H_third_hybrid (n + 1) (Fin.castSucc i)).toSet ∩
+        (H_third_hybrid (n + 1) (Fin.castSucc j)).toSet =
+        (H_third_hybrid (n + 1) (Fin.castSucc j)).toSet ∩
+        (H_third_hybrid (n + 1) (Fin.castSucc i)).toSet := Set.inter_comm _ _
+    rw [h_comm]
+    exact hq
+
+/-- H_third_hybrid において、相異なる任意の3平面と最後のモーメント平面の交わりは空集合である。 -/
+lemma intersection_four_third_hybrid_empty (n : ℕ) (hn : 5 ≤ n)
+    (i j l : Fin n) (hij : i ≠ j) (hjl : j ≠ l) (hil : i ≠ l) :
+    (H_third_hybrid (n + 1) (Fin.castSucc i)).toSet ∩
+      (H_third_hybrid (n + 1) (Fin.castSucc j)).toSet ∩
+      (H_third_hybrid (n + 1) (Fin.castSucc l)).toSet ∩
+      (H_third_hybrid (n + 1) (Fin.last n)).toSet = ∅ := by
+  have h_last_eq : H_third_hybrid (n + 1) (Fin.last n) =
+      H_hybrid (n + 1) (Fin.last n) := by
+    have hn_ne4 : (Fin.last n).val ≠ 4 := by
+      change n ≠ 4
+      omega
+    exact H_third_hybrid_eq_H_hybrid (Fin.last n) hn_ne4
+  by_cases h4 : i.val ≠ 4 ∧ j.val ≠ 4 ∧ l.val ≠ 4
+  · rcases h4 with ⟨hi4, hj4, hl4⟩
+    have hi_val : (Fin.castSucc i).val = i.val := rfl
+    have hj_val : (Fin.castSucc j).val = j.val := rfl
+    have hl_val : (Fin.castSucc l).val = l.val := rfl
+    have hi_eq : H_third_hybrid (n + 1) (Fin.castSucc i) =
+        H_hybrid (n + 1) (Fin.castSucc i) :=
+      H_third_hybrid_eq_H_hybrid (Fin.castSucc i) (by rw [hi_val]; exact hi4)
+    have hj_eq : H_third_hybrid (n + 1) (Fin.castSucc j) =
+        H_hybrid (n + 1) (Fin.castSucc j) :=
+      H_third_hybrid_eq_H_hybrid (Fin.castSucc j) (by rw [hj_val]; exact hj4)
+    have hl_eq : H_third_hybrid (n + 1) (Fin.castSucc l) =
+        H_hybrid (n + 1) (Fin.castSucc l) :=
+      H_third_hybrid_eq_H_hybrid (Fin.castSucc l) (by rw [hl_val]; exact hl4)
+    rw [hi_eq, hj_eq, hl_eq, h_last_eq]
+    have hn3 : 3 ≤ n := by omega
+    exact intersection_four_hybrid_empty n hn3 i j l hij hjl hil
+  · -- i, j, l のいずれかが 4 の場合、平面 z = 3 と他の平面の交点は存在しない。
+    sorry
+
+/-- H_third_hybrid において、最後の平面上に現れる交線系は一般の位置にある。 -/
+lemma generalPositionLines_third_hybrid (n : ℕ) (hn : 5 ≤ n) :
+    GeneralPositionLines n (traceLinesOnLastPlane n (H_third_hybrid (n + 1))) := by
+  have h_not_par_last : ∀ i : Fin n,
+      ¬ parallelPlanes ((H_third_hybrid (n + 1)) (Fin.castSucc i))
+        ((H_third_hybrid (n + 1)) (Fin.last n)) := by
+    intro i
+    have h_lt : Fin.castSucc i < Fin.last n := Fin.castSucc_lt_last i
+    exact not_parallel_third_hybrid (Fin.castSucc i) (Fin.last n) h_lt
+  apply generalPositionLines_of_plane_intersections n (H_third_hybrid (n + 1)) h_not_par_last
+  · intro i j hij
+    exact intersection_three_third_hybrid n hn i j hij
+  · intro i j l hij hjl hil
+    exact intersection_four_third_hybrid_empty n hn i j l hij hjl hil
 
 /-- n ≥ 5 のとき、モーメント平面を追加したときの切断領域数は最大値に一致する。 -/
 lemma splitSpaceRegionsCount_third_hybrid (n : ℕ) (hn : 5 ≤ n) :
     splitSpaceRegionsCount n (H_third_hybrid (n + 1)) = maxPlaneRegions n := by
-  -- 6枚目以降に追加されるモーメント平面は既存の配置と一般の位置にあるため、切断領域数は最大値をとる。
-  sorry
+  have h_not_par : ∀ i : Fin n,
+      ¬ parallelPlanes ((H_third_hybrid (n + 1)) (Fin.castSucc i))
+        ((H_third_hybrid (n + 1)) (Fin.last n)) := by
+    intro i
+    have h_lt : Fin.castSucc i < Fin.last n := Fin.castSucc_lt_last i
+    exact not_parallel_third_hybrid (Fin.castSucc i) (Fin.last n) h_lt
+  have hgen_lines := generalPositionLines_third_hybrid n hn
+  exact splitSpaceRegionsCount_eq_of_traceLines n (H_third_hybrid (n + 1)) h_not_par hgen_lines
 
 /-- n ≥ 5 のとき、H_third_hybrid の領域数は第3位の領域数に一致する。 -/
 lemma spaceRegionsCount_third_hybrid (n : ℕ) (hn : 5 ≤ n) :
