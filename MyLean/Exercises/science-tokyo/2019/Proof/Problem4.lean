@@ -6913,6 +6913,149 @@ lemma exists_empty_pair_of_parallel_lines_and_distinct (L₁ L₂ : Line2)
       rw [mul_comm] at h3
       linarith
 
+/-- 2本の平行な直線に対して、少なくとも1組の符号は空集合である。 -/
+lemma exists_empty_pair_of_parallel_lines (L₁ L₂ : Line2)
+    (hpar : parallelLines L₁ L₂) :
+    ∃ b₁ b₂ : Bool, ∀ p : Plane2, ¬ (
+      (if b₁ then L₁.offset < @inner ℝ Plane2 _ L₁.normVec p
+       else @inner ℝ Plane2 _ L₁.normVec p < L₁.offset) ∧
+      (if b₂ then L₂.offset < @inner ℝ Plane2 _ L₂.normVec p
+       else @inner ℝ Plane2 _ L₂.normVec p < L₂.offset)) := by
+  rcases hpar with ⟨c, hc⟩
+  have hc_ne : c ≠ 0 := by
+    intro hc0
+    have : L₁.normVec = 0 := by rw [hc, hc0, zero_smul]
+    exact L₁.normVec_ne_zero this
+  have h_inner : ∀ p : Plane2,
+      @inner ℝ Plane2 _ L₁.normVec p = c * @inner ℝ Plane2 _ L₂.normVec p := by
+    intro p
+    rw [hc, inner_smul_left, conj_trivial]
+  rcases lt_or_gt_of_ne hc_ne with hc_neg | hc_pos
+  · by_cases h_le : L₁.offset / c ≤ L₂.offset
+    · use true, true
+      intro p ⟨hp1, hp2⟩
+      change L₁.offset < @inner ℝ Plane2 _ L₁.normVec p at hp1
+      change L₂.offset < @inner ℝ Plane2 _ L₂.normVec p at hp2
+      rw [h_inner] at hp1
+      have h1 : c * @inner ℝ Plane2 _ L₂.normVec p < c * L₂.offset :=
+        mul_lt_mul_of_neg_left hp2 hc_neg
+      have h2 : L₁.offset < c * L₂.offset := lt_trans hp1 h1
+      have h3 : L₂.offset * c ≤ L₁.offset := (div_le_iff_of_neg hc_neg).mp h_le
+      rw [mul_comm] at h3
+      linarith
+    · have h_gt : L₂.offset < L₁.offset / c := not_le.mp h_le
+      use false, false
+      intro p ⟨hp1, hp2⟩
+      change @inner ℝ Plane2 _ L₁.normVec p < L₁.offset at hp1
+      change @inner ℝ Plane2 _ L₂.normVec p < L₂.offset at hp2
+      rw [h_inner] at hp1
+      have h1 : c * L₂.offset < c * @inner ℝ Plane2 _ L₂.normVec p :=
+        mul_lt_mul_of_neg_left hp2 hc_neg
+      have h2 : c * L₂.offset < L₁.offset := lt_trans h1 hp1
+      have h3 : L₁.offset < L₂.offset * c := (lt_div_iff_of_neg hc_neg).mp h_gt
+      rw [mul_comm] at h3
+      linarith
+  · by_cases h_le : L₁.offset / c ≤ L₂.offset
+    · use false, true
+      intro p ⟨hp1, hp2⟩
+      change @inner ℝ Plane2 _ L₁.normVec p < L₁.offset at hp1
+      change L₂.offset < @inner ℝ Plane2 _ L₂.normVec p at hp2
+      rw [h_inner] at hp1
+      have h1 : c * L₂.offset < c * @inner ℝ Plane2 _ L₂.normVec p :=
+        mul_lt_mul_of_pos_left hp2 hc_pos
+      have h2 : c * L₂.offset < L₁.offset := lt_trans h1 hp1
+      have h3 : L₁.offset ≤ L₂.offset * c := (div_le_iff₀ hc_pos).mp h_le
+      rw [mul_comm] at h3
+      linarith
+    · have h_gt : L₂.offset < L₁.offset / c := not_le.mp h_le
+      use true, false
+      intro p ⟨hp1, hp2⟩
+      change L₁.offset < @inner ℝ Plane2 _ L₁.normVec p at hp1
+      change @inner ℝ Plane2 _ L₂.normVec p < L₂.offset at hp2
+      rw [h_inner] at hp1
+      have h1 : c * @inner ℝ Plane2 _ L₂.normVec p < c * L₂.offset :=
+        mul_lt_mul_of_pos_left hp2 hc_pos
+      have h2 : L₁.offset < c * L₂.offset := lt_trans hp1 h1
+      have h3 : L₂.offset * c < L₁.offset := (lt_div_iff₀ hc_pos).mp h_gt
+      rw [mul_comm] at h3
+      linarith
+
+lemma card_filter_pair_eq_one_two (b0 b1 : Bool) :
+    (Finset.filter (fun σ : Fin 2 → Bool => σ 0 = b0 ∧ σ 1 = b1) Finset.univ).card = 1 := by
+  revert b0 b1
+  decide
+
+/-- 2本の直線のうち符号の組が空であるものがあれば、平面領域数は高々3である。 -/
+lemma planeRegionsCount_two_le_three_of_pair_empty
+    (L : Fin 2 → Line2) (b0 b1 : Bool)
+    (h_empty : ∀ p : Plane2, ¬ (
+      (if b0 then (L 0).offset < @inner ℝ Plane2 _ (L 0).normVec p
+       else @inner ℝ Plane2 _ (L 0).normVec p < (L 0).offset) ∧
+      (if b1 then (L 1).offset < @inner ℝ Plane2 _ (L 1).normVec p
+       else @inner ℝ Plane2 _ (L 1).normVec p < (L 1).offset))) :
+    planeRegionsCount 2 L ≤ 3 := by
+  rw [planeRegionsCount_eq_card_nonempty_convexPlaneRegion]
+  let bad_sigs := Finset.filter (fun σ : Fin 2 → Bool => σ 0 = b0 ∧ σ 1 = b1) Finset.univ
+  have h_bad_empty : ∀ σ ∈ bad_sigs, ¬ (convexPlaneRegion 2 L σ).Nonempty := by
+    intro σ hσ ⟨p, hp⟩
+    rw [Finset.mem_filter] at hσ
+    have hp0 := hp 0
+    have hp1 := hp 1
+    change (if σ 0 then (L 0).offset < @inner ℝ Plane2 _ (L 0).normVec p
+            else @inner ℝ Plane2 _ (L 0).normVec p < (L 0).offset) at hp0
+    change (if σ 1 then (L 1).offset < @inner ℝ Plane2 _ (L 1).normVec p
+            else @inner ℝ Plane2 _ (L 1).normVec p < (L 1).offset) at hp1
+    rw [hσ.2.1] at hp0
+    rw [hσ.2.2] at hp1
+    exact h_empty p ⟨hp0, hp1⟩
+  have h_sub : (Finset.filter (fun σ => (convexPlaneRegion 2 L σ).Nonempty) Finset.univ) ⊆
+      Finset.univ \ bad_sigs := by
+    intro σ hσ
+    rw [Finset.mem_sdiff]
+    refine ⟨Finset.mem_univ σ, ?_⟩
+    intro h_bad
+    exact h_bad_empty σ h_bad (Finset.mem_filter.mp hσ).2
+  have h_card_le := Finset.card_le_card h_sub
+  rw [Finset.card_sdiff] at h_card_le
+  rw [Finset.inter_univ] at h_card_le
+  have h_univ : (Finset.univ : Finset (Fin 2 → Bool)).card = 4 := by decide
+  have h_bad_card : bad_sigs.card = 1 := card_filter_pair_eq_one_two b0 b1
+  omega
+
+/-- 2本の平行な直線の平面領域数は高々3である。 -/
+lemma planeRegionsCount_two_le_three_of_parallel (L : Fin 2 → Line2)
+    (hpar : parallelLines (L 0) (L 1)) :
+    planeRegionsCount 2 L ≤ 3 := by
+  rcases exists_empty_pair_of_parallel_lines (L 0) (L 1) hpar with ⟨b0, b1, h_empty⟩
+  exact planeRegionsCount_two_le_three_of_pair_empty L b0 b1 h_empty
+
+/-- 3本の直線がすべて互いに平行であるならば、平面領域数は高々4である。 -/
+lemma planeRegionsCount_three_le_four_of_all_parallel (L : Fin 3 → Line2)
+    (hpar : ∀ i j : Fin 3, parallelLines (L i) (L j)) :
+    planeRegionsCount 3 L ≤ 4 := by
+  have h_add := planeRegionsCount_succ_le_add_split 2 L
+  change planeRegionsCount 3 L ≤
+    planeRegionsCount 2 (L ∘ Fin.castSucc) + splitRegionsCount 2 L at h_add
+  have h_split := splitRegionsCount_le_lineIntervals 2 L
+  have h_empty_indices : intersectingIndices 2 L = ∅ := by
+    rw [intersectingIndices, Finset.filter_eq_empty_iff]
+    intro i _
+    dsimp [hasIntersectionWithLast]
+    exact not_not.mpr (hpar (Fin.castSucc i) (Fin.last 2))
+  have h_params_empty : lineIntersectionParams 2 L = ∅ := by
+    dsimp [lineIntersectionParams]
+    rw [h_empty_indices, Finset.image_empty]
+  have h_card_zero : (lineIntersectionParams 2 L).card = 0 := by
+    rw [h_params_empty, Finset.card_empty]
+  have h_intervals := card_intervals_of_finset_real (lineIntersectionParams 2 L)
+  rw [h_card_zero] at h_intervals
+  have h_split_le1 : splitRegionsCount 2 L ≤ 1 := by omega
+  have hpar_01 : parallelLines ((L ∘ Fin.castSucc) 0) ((L ∘ Fin.castSucc) 1) := by
+    dsimp [Function.comp_apply]
+    exact hpar 0 1
+  have h_prev := planeRegionsCount_two_le_three_of_parallel (L ∘ Fin.castSucc) hpar_01
+  omega
+
 /-- 平行線の反射律。任意の直線は自身と平行である。 -/
 lemma parallelLines_refl (L : Line2) : parallelLines L L := ⟨1, by rw [one_smul]⟩
 
@@ -7361,16 +7504,198 @@ lemma splitSpaceRegionsCount_three_ne_five (H : Fin 4 → Plane3)
         rw [hm] at h5
         omega
 
+/-- 3平面の交わりが1点であり、どの2平面も平行でないならば、3平面は一般の位置にある。 -/
+lemma generalPositionPlanes_three_of_inter_singleton (H : Fin 3 → Plane3)
+    (h_not_par : ∀ i j, i ≠ j → ¬ parallelPlanes (H i) (H j))
+    (P : Space3)
+    (hP : (H 0).toSet ∩ (H 1).toSet ∩ (H 2).toSet = {P}) :
+    GeneralPositionPlanes 3 H := by
+  refine ⟨h_not_par, ?_, ?_⟩
+  · intro i j l hij hjl hil
+    have h_perm : (H i).toSet ∩ (H j).toSet ∩ (H l).toSet =
+        (H 0).toSet ∩ (H 1).toSet ∩ (H 2).toSet := by
+      fin_cases i <;> fin_cases j <;> fin_cases l <;> try contradiction
+      all_goals {
+        ext x
+        simp only [Set.mem_inter_iff]
+        tauto
+      }
+    rw [h_perm, hP]
+    exact ⟨P, rfl⟩
+  · intro i j l m hij hjl hlm hil him hjm
+    fin_cases i <;> fin_cases j <;> fin_cases l <;> fin_cases m <;> contradiction
+
+/-- 3平面において、第3平面上の2本の交線が平行でないならば、3平面の交わりは1点である。 -/
+lemma inter_three_planes_singleton_of_not_parallel_traceLine_pair
+    (H : Fin 3 → Plane3)
+    (h_not_par : ∀ i : Fin 2, ¬ parallelPlanes (H (Fin.castSucc i)) (H (Fin.last 2)))
+    (h_not_par_lines :
+      ¬ parallelLines (traceLinesOnLastPlane 2 H 0) (traceLinesOnLastPlane 2 H 1)) :
+    ∃ P : Space3, (H 0).toSet ∩ (H 1).toSet ∩ (H 2).toSet = {P} := by
+  let L0 := traceLinesOnLastPlane 2 H 0
+  let L1 := traceLinesOnLastPlane 2 H 1
+  rcases exists_linePt_mem_of_not_parallel L0 L1 h_not_par_lines with ⟨t0, ht0⟩
+  let p0 := linePt L1 t0
+  have hp0_1 : p0 ∈ L1.toSet := linePt_mem_line L1 t0
+  have hp0_0 : p0 ∈ L0.toSet := ht0
+  let P := planePt3 (H (Fin.last 2)) p0
+  have hP2 : P ∈ (H (Fin.last 2)).toSet := planePt3_mem_plane (H (Fin.last 2)) p0
+  have hP0 : P ∈ (H (Fin.castSucc 0)).toSet :=
+    (mem_traceLine_iff 2 H 0 (h_not_par 0) p0).mp hp0_0
+  have hP1 : P ∈ (H (Fin.castSucc 1)).toSet :=
+    (mem_traceLine_iff 2 H 1 (h_not_par 1) p0).mp hp0_1
+  refine ⟨P, ?_⟩
+  ext Q
+  constructor
+  · intro hQ
+    rcases hQ with ⟨⟨hQ0, hQ1⟩, hQ2⟩
+    rcases exists_p_planePt3_eq (H (Fin.last 2)) hQ2 with ⟨q, hq_eq⟩
+    have hq0 : q ∈ L0.toSet := by
+      rw [mem_traceLine_iff 2 H 0 (h_not_par 0) q, hq_eq]
+      exact hQ0
+    have hq1 : q ∈ L1.toSet := by
+      rw [mem_traceLine_iff 2 H 1 (h_not_par 1) q, hq_eq]
+      exact hQ1
+    rcases exists_t_linePt_eq L1 hq1 with ⟨tq, htq⟩
+    have htq_in_L0 : linePt L1 tq ∈ L0.toSet := by rwa [htq]
+    have ht_eq : tq = t0 :=
+      eq_of_mem_line_linePt L0 L1 h_not_par_lines htq_in_L0 ht0
+    have hq_eq_p0 : q = p0 := by rw [← htq, ht_eq]
+    have hQ_eq_P : Q = P := by rw [← hq_eq, hq_eq_p0]
+    exact Set.mem_singleton_iff.mpr hQ_eq_P
+  · intro hQ
+    rw [Set.mem_singleton_iff.mp hQ]
+    exact ⟨⟨hP0, hP1⟩, hP2⟩
+
+/-- どの2平面も平行でなく一般の位置にない3平面において、第3平面上の2本の交線は平行である。 -/
+lemma parallel_traceLines_of_not_general (H : Fin 3 → Plane3)
+    (h_not_par : ∀ i j, i ≠ j → ¬ parallelPlanes (H i) (H j))
+    (h_not_gen : ¬ GeneralPositionPlanes 3 H) :
+    parallelLines (traceLinesOnLastPlane 2 H 0) (traceLinesOnLastPlane 2 H 1) := by
+  by_contra h_not_par_lines
+  have h_not_par_last : ∀ i : Fin 2, ¬ parallelPlanes (H (Fin.castSucc i)) (H (Fin.last 2)) := by
+    intro i
+    exact h_not_par (Fin.castSucc i) (Fin.last 2) (Fin.castSucc_ne_last i)
+  rcases inter_three_planes_singleton_of_not_parallel_traceLine_pair
+      H h_not_par_last h_not_par_lines with ⟨P, hP⟩
+  exact h_not_gen (generalPositionPlanes_three_of_inter_singleton H h_not_par P hP)
+
+/-- どの2平面も平行でなく、どの3平面も一般の位置にない4平面配置において、
+第4平面上の任意の2本の交線は平行である。 -/
+lemma parallel_traceLinesOnLastPlane_four_of_not_general (H : Fin 4 → Plane3)
+    (h_not_par : ∀ i j, i ≠ j → ¬ parallelPlanes (H i) (H j))
+    (h_not_gen : ∀ i : Fin 4, ¬ GeneralPositionPlanes 3 (H ∘ Fin.succAbove i))
+    (i j : Fin 3) :
+    parallelLines (traceLinesOnLastPlane 3 H i) (traceLinesOnLastPlane 3 H j) := by
+  fin_cases i <;> fin_cases j
+  · exact parallelLines_refl _
+  · have h_not_par' : ∀ a b, a ≠ b →
+        ¬ parallelPlanes ((H ∘ Fin.succAbove 2) a) ((H ∘ Fin.succAbove 2) b) := by
+      intro a b hab
+      apply h_not_par
+      intro h_eq
+      apply hab
+      exact Fin.succAbove_right_injective h_eq
+    have h_par := parallel_traceLines_of_not_general (H ∘ Fin.succAbove 2) h_not_par' (h_not_gen 2)
+    exact h_par
+  · have h_not_par' : ∀ a b, a ≠ b →
+        ¬ parallelPlanes ((H ∘ Fin.succAbove 1) a) ((H ∘ Fin.succAbove 1) b) := by
+      intro a b hab
+      apply h_not_par
+      intro h_eq
+      apply hab
+      exact Fin.succAbove_right_injective h_eq
+    have h_par := parallel_traceLines_of_not_general (H ∘ Fin.succAbove 1) h_not_par' (h_not_gen 1)
+    exact h_par
+  · have h_not_par' : ∀ a b, a ≠ b →
+        ¬ parallelPlanes ((H ∘ Fin.succAbove 2) a) ((H ∘ Fin.succAbove 2) b) := by
+      intro a b hab
+      apply h_not_par
+      intro h_eq
+      apply hab
+      exact Fin.succAbove_right_injective h_eq
+    have h_par := parallel_traceLines_of_not_general (H ∘ Fin.succAbove 2) h_not_par' (h_not_gen 2)
+    exact parallelLines_symm _ _ h_par
+  · exact parallelLines_refl _
+  · have h_not_par' : ∀ a b, a ≠ b →
+        ¬ parallelPlanes ((H ∘ Fin.succAbove 0) a) ((H ∘ Fin.succAbove 0) b) := by
+      intro a b hab
+      apply h_not_par
+      intro h_eq
+      apply hab
+      exact Fin.succAbove_right_injective h_eq
+    have h_par := parallel_traceLines_of_not_general (H ∘ Fin.succAbove 0) h_not_par' (h_not_gen 0)
+    exact h_par
+  · have h_not_par' : ∀ a b, a ≠ b →
+        ¬ parallelPlanes ((H ∘ Fin.succAbove 1) a) ((H ∘ Fin.succAbove 1) b) := by
+      intro a b hab
+      apply h_not_par
+      intro h_eq
+      apply hab
+      exact Fin.succAbove_right_injective h_eq
+    have h_par := parallel_traceLines_of_not_general (H ∘ Fin.succAbove 1) h_not_par' (h_not_gen 1)
+    exact parallelLines_symm _ _ h_par
+  · have h_not_par' : ∀ a b, a ≠ b →
+        ¬ parallelPlanes ((H ∘ Fin.succAbove 0) a) ((H ∘ Fin.succAbove 0) b) := by
+      intro a b hab
+      apply h_not_par
+      intro h_eq
+      apply hab
+      exact Fin.succAbove_right_injective h_eq
+    have h_par := parallel_traceLines_of_not_general (H ∘ Fin.succAbove 0) h_not_par' (h_not_gen 0)
+    exact parallelLines_symm _ _ h_par
+  · exact parallelLines_refl _
+
 /-- どの2平面も平行でなく、どの3平面も一般の位置にない4平面配置の領域数は高々11である。 -/
 lemma spaceRegionsCount_four_le_eleven_of_not_general (H : Fin 4 → Plane3)
     (h_not_par : ∀ i j, i ≠ j → ¬ parallelPlanes (H i) (H j))
     (h_not_gen : ∀ i : Fin 4,
       ¬ GeneralPositionPlanes 3 (H ∘ Fin.succAbove i)) :
     spaceRegionsCount 4 H ≤ 11 := by
-  have h_max4 : maxPlaneRegions 4 = 11 := by decide
-  -- 法線が共面なため、空間分割は2次元断面の4本の直線配置に同型となり、
-  -- 領域数は planeRegionsCount 4 L ≤ maxPlaneRegions 4 = 11 で抑えられる。
-  sorry
+  have h_succ4 := spaceRegionsCount_succ_eq_add_split 3 H
+  let H3 := H ∘ Fin.castSucc
+  have h_succ3 := spaceRegionsCount_succ_eq_add_split 2 H3
+  have h_not_par3 : ∀ i : Fin 3,
+      ¬ parallelPlanes (H (Fin.castSucc i)) (H (Fin.last 3)) := by
+    intro i
+    exact h_not_par (Fin.castSucc i) (Fin.last 3) (Fin.castSucc_ne_last i)
+  have h_split4_eq := splitSpaceRegionsCount_eq_planeRegionsCount 3 H h_not_par3
+  rw [h_split4_eq] at h_succ4
+  have h_all_par4 : ∀ i j : Fin 3,
+      parallelLines (traceLinesOnLastPlane 3 H i) (traceLinesOnLastPlane 3 H j) :=
+    parallel_traceLinesOnLastPlane_four_of_not_general H h_not_par h_not_gen
+  have h_plane4_le : planeRegionsCount 3 (traceLinesOnLastPlane 3 H) ≤ 4 :=
+    planeRegionsCount_three_le_four_of_all_parallel (traceLinesOnLastPlane 3 H) h_all_par4
+  have h_not_par2 : ∀ i : Fin 2,
+      ¬ parallelPlanes (H3 (Fin.castSucc i)) (H3 (Fin.last 2)) := by
+    intro i
+    apply h_not_par
+    intro h_eq
+    have h_inj := Fin.castSucc_inj.mp h_eq
+    exact Fin.castSucc_ne_last i h_inj
+  have h_split3_eq := splitSpaceRegionsCount_eq_planeRegionsCount 2 H3 h_not_par2
+  rw [h_split3_eq] at h_succ3
+  have h_not_par_H3 : ∀ i j, i ≠ j → ¬ parallelPlanes (H3 i) (H3 j) := by
+    intro i j hij
+    apply h_not_par
+    intro h_eq
+    exact hij (Fin.castSucc_inj.mp h_eq)
+  have h_H3_eq_succ3 : H3 = H ∘ Fin.succAbove 3 := by
+    ext i
+    dsimp [H3, Function.comp]
+    fin_cases i <;> rfl
+  have h_not_gen_H3 : ¬ GeneralPositionPlanes 3 H3 := by
+    rw [h_H3_eq_succ3]
+    exact h_not_gen 3
+  have h_par_L2 := parallel_traceLines_of_not_general H3 h_not_par_H3 h_not_gen_H3
+  have h_plane3_le : planeRegionsCount 2 (traceLinesOnLastPlane 2 H3) ≤ 3 :=
+    planeRegionsCount_two_le_three_of_parallel (traceLinesOnLastPlane 2 H3) h_par_L2
+  have h_two_le := spaceRegionsCount_le_maxSpaceRegions 2 (H3 ∘ Fin.castSucc)
+  have h_max2 : maxSpaceRegions 2 = 4 := by decide
+  change spaceRegionsCount 4 H =
+    spaceRegionsCount 3 H3 + planeRegionsCount 3 (traceLinesOnLastPlane 3 H) at h_succ4
+  rw [h_succ3] at h_succ4
+  omega
 
 /-- 4枚の相異なる平面配置において、
 領域数が13となる配置は存在しない。 -/
